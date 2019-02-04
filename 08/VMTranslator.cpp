@@ -21,14 +21,26 @@ void trim(string& s, const string& delimiters = " \f\n\r\t\v" )
     s.erase(s.find_last_not_of(delimiters) + 1).erase(0, s.erase(s.find_last_not_of(delimiters) + 1).find_first_not_of(delimiters));
 }
 
+int get_static_number(bool inc) {
+    int static number = 0;
+    if (inc) {
+        return ++number;
+    } else {
+        return number;
+    }
+}
 
 class Parser {
     public:
         vector<vector<string>> commands;
-        Parser(const string& path) {
+        Parser(const string& path, bool init) {
             ifstream infile;
             infile.open(path);
             string line;
+            if (init) {
+                vector<string> init {"call", "Sys.init", "0"};
+                this->commands.push_back(init);
+            }
             if (infile) {
                 while (getline(infile, line)) {
                     if (!(line[0] == '/' && line[1] == '/') && !(isspace(line[0]))) {
@@ -44,8 +56,8 @@ class Parser {
 
 class CodeWriter {
     public:
-        vector<string> results;
         int labels = 0;
+        vector<string> results;
         CodeWriter(const vector<vector<string>>& commands) {
             for (int i=0; i<commands.size(); i++) {
                 if (commands[i][0] == "push") {
@@ -322,15 +334,19 @@ class CodeWriter {
                 } else if (commands[i][0] == "label") {
                     results.push_back("(" + commands[i][1] + ")");
                 } else if (commands[i][0] == "goto") {
+                    //this needs a label after the name of the function
                     results.push_back("@" + commands[i][1]);
                     results.push_back("0; JMP");
                 } else if (commands[i][0] == "if-goto") {
                     results.push_back("@SP");
                     results.push_back("AM=M-1");
                     results.push_back("D=M");
+                    //this needs a label after the name of the function
                     results.push_back("@" + commands[i][1]);
                     results.push_back("D; JNE");
-                } else if (commands[i][0] == "function") {
+                } 
+                //Function Calling
+                else if (commands[i][0] == "function") {
                     results.push_back("(" + commands[i][1] + ")");
                     results.push_back("@SP");
                     results.push_back("A=M");
@@ -341,10 +357,11 @@ class CodeWriter {
                     }
                 } else if (commands[i][0] == "call") {
                     //storing the return address
+                    results.push_back("@RA" + to_string(get_static_number(true)));
+                    results.push_back("D=A");
                     results.push_back("@SP");
-                    results.push_back("M=M+1");
-                    results.push_back("D=M-1");
-                    results.push_back("A=D");
+                    results.push_back("AM=M+1");
+                    results.push_back("A=A-1");
                     results.push_back("M=D");
                     
                     results.push_back("@LCL");
@@ -380,32 +397,43 @@ class CodeWriter {
                     results.push_back("@5");
                     results.push_back("D=D+A");
                     results.push_back("@SP");
-                    results.push_back("D=A-D");
+                    results.push_back("D=M-D");
                     results.push_back("@ARG");
                     results.push_back("M=D");
 
+                    //change LCL to the stack pointer and increment the stack pointer by the number of local variables
                     results.push_back("@SP");
-                    results.push_back("D=A");
+                    results.push_back("D=M");
                     results.push_back("@LCL");
                     results.push_back("M=D");
+                    results.push_back("@" + commands[i][2]);
+                    results.push_back("D=A");
+                    results.push_back("@SP");
+                    results.push_back("D=M+D");
+                    //results.push_back("@LCL");
+                    //results.push_back("M=D");
 
+                    //jump to the function
                     results.push_back("@" + commands[i][1]);
-                    
-                    results.push_back("(" + commands[i][1] + "$" + commands[i][2] + ")");
-                 } else if (commands[i][0] == "return") {
-                    //store the return address in R15
-                    results.push_back("@5");
+                    results.push_back("0; JMP");
+
+                    //provide a return label
+                    results.push_back("(RA" + to_string(get_static_number(false)) + ")");
+                   } else if (commands[i][0] == "return") {
+                    //put the return address in a temp variable
+                    results.push_back("@5"); 
                     results.push_back("D=A");
                     results.push_back("@LCL");
                     results.push_back("A=M-D");
                     results.push_back("D=M");
-                    results.push_back("@R15");
+                    results.push_back("@RET");
                     results.push_back("M=D");
-        
+ 
                     //reposition the return value
                     results.push_back("@SP");
                     results.push_back("AM=M-1");
                     results.push_back("D=M");
+                    results.push_back("M=0");
                     results.push_back("@ARG");
                     results.push_back("A=M");
                     results.push_back("M=D");
@@ -415,46 +443,60 @@ class CodeWriter {
                     results.push_back("D=M");
                     results.push_back("@SP");
                     results.push_back("M=D+1");
+                    
+                    //delete the return address of the called function
+                    //results.push_back("@5");            
+                    //results.push_back("D=A");
+                    //results.push_back("@LCL");
+                    //results.push_back("A=M-D");
+                    //results.push_back("M=0");
 
                     //restore the THAT of the caller
                     results.push_back("@LCL");
-                    results.push_back("AM=M-1");
+                    results.push_back("A=M-1");
                     results.push_back("D=M");
                     results.push_back("M=0");
                     results.push_back("@THAT");
                     results.push_back("M=D");
 
                     //restore the THIS of the caller
+                    results.push_back("@2");
+                    results.push_back("D=A");
                     results.push_back("@LCL");
-                    results.push_back("AM=M-1");
+                    results.push_back("A=M-D");
                     results.push_back("D=M");
                     results.push_back("M=0");
                     results.push_back("@THIS");
                     results.push_back("M=D");
 
                     //restore the ARG of the caller
+                    results.push_back("@3");
+                    results.push_back("D=A");
                     results.push_back("@LCL");
-                    results.push_back("AM=M-1");
+                    results.push_back("A=M-D");
                     results.push_back("D=M");
                     results.push_back("M=0");
                     results.push_back("@ARG");
                     results.push_back("M=D");
 
                     //restore the LCL of the caller
+                    results.push_back("@4");
+                    results.push_back("D=A");
                     results.push_back("@LCL");
-                    results.push_back("AM=M-1");
+                    results.push_back("A=M-D");
                     results.push_back("D=M");
                     results.push_back("M=0");
                     results.push_back("@LCL");
                     results.push_back("M=D");
 
                     //go to the return address of the caller
-                    results.push_back("@R15");
+                    results.push_back("@RET");
                     results.push_back("A=M");
+                    results.push_back("0; JMP");
                 }
            }
             for (int j=0; j<results.size(); ++j) {
-                cout << results[j] << endl;
+                //cout << results[j] << endl;
             }    
         }
 
@@ -475,7 +517,7 @@ int main(int argc, char * argv[]) {
         if (stat(path.c_str(), &buffer) == 0) {
             if (S_ISREG(buffer.st_mode)) {
                 cout << "FILE" << endl << endl;
-                Parser parser(path);
+                Parser parser(path, false);
                 CodeWriter codewriter(parser.commands);
                 string destination = get_current_path() + "/" + argv[2];
                 codewriter.writer(destination);
@@ -485,10 +527,10 @@ int main(int argc, char * argv[]) {
                 //write the bootstrap code into the destination file
                 ofstream outfile;
                 outfile.open(destination);
-                outfile << "@256\nD=A\n@SP\nM=D\n" << "@SP\nAM=M+1\nM=0\n" << "@SP\nAM=M+1\nM=0\n" << "@SP\nAM=M+1\nM=0\n" << "@SP\nAM=M+1\nM=0\n" << "@SP\nAM=M+1\nM=0\n" << endl;
+                outfile << "@256\nD=A\n@SP\nM=D\n" << endl;
                 outfile.close();
                 //translate the Sys.vm file first
-                Parser sys_parser((string)argv[1] + "Sys.vm");
+                Parser sys_parser((string)argv[1] + "Sys.vm", true);
                 CodeWriter sys_codewriter(sys_parser.commands);
                 sys_codewriter.writer(destination);
                 //then move on until everything else
@@ -500,10 +542,11 @@ int main(int argc, char * argv[]) {
                         string x = (string)argv[1] + ent->d_name;
                         stat(x.c_str(), &buffer);
                         if (S_ISREG(buffer.st_mode)) {
-                            if (string(1, x[x.length()-3]) + string(1, x[x.length()-2]) + string(1, x[x.length()-1]) == ".vm" && x != "Sys.vm") {
-                                Parser parser(x);
-                                //CodeWriter codewriter(parser.commands);
-                                //codewriter.writer(get_current_path() + "/" + argv[2]);
+                            if (string(1, x[x.length()-3]) + string(1, x[x.length()-2]) + string(1, x[x.length()-1]) == ".vm" &&
+                                string(1, x[x.length()-6]) + string(1, x[x.length()-5]) + string(1, x[x.length()-4]) != "Sys") {
+                                Parser parser(x, false);
+                                CodeWriter codewriter(parser.commands);
+                                codewriter.writer(get_current_path() + "/" + argv[2]);
                             }
                         }
                     }
