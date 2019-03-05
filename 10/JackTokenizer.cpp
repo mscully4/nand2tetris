@@ -43,7 +43,8 @@ void split(string& s, char delimiter, vector<string>& tokens) {
     
     for (int j=0; j<chork.size(); ++j) {
         string boof = chork[j];
-         if (boof[0] == '(') {
+        //cout << boof << endl;
+        if (boof[0] == '(') {
             tokens.push_back("(");
             if (boof.length() > 1 && boof[1] == '-') {
                 tokens.push_back("-");
@@ -53,8 +54,13 @@ void split(string& s, char delimiter, vector<string>& tokens) {
             }
             tokens.push_back(")");
         } else if (boof[boof.length() - 1] == ')') {
-            int loc = boof.find('(');
-            if (loc > 0) {
+            int period, loc;
+            if ((period = boof.find('.')) != string::npos) {
+                tokens.push_back(boof.substr(0, period));
+                boof.erase(0, period + 1);
+                tokens.push_back(".");
+            }
+            if ((loc = boof.find('(')) != string::npos) {
                 tokens.push_back(boof.substr(0, loc));
                 boof.erase(0, loc + 1); 
                 tokens.push_back("(");
@@ -78,6 +84,14 @@ void split(string& s, char delimiter, vector<string>& tokens) {
                 }
                 tokens.push_back(str);
             }
+        } else if (boof.find('[') != string::npos) {
+            tokens.push_back(boof.substr(0, boof.find('[')));
+            tokens.push_back(boof.substr(boof.find('['), boof.find('[')));
+            tokens.push_back(boof.substr(boof.find('[') + 1, boof.find(']') - 2));
+            tokens.push_back(boof.substr(boof.find(']'), boof.find(']')));
+        } else if (boof.find(',') != string::npos) {
+            tokens.push_back(boof.substr(0, boof.find(',')));
+            tokens.push_back(",");
         } else {
             tokens.push_back(boof);
         }
@@ -103,20 +117,20 @@ string JackTokenizer::tokenType(string token) {
     vector<string> keywords{"class", "constructor", "function", "method", "field", "static", "var", "int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"};
     string type;
     if (isdigit(token[0]) == 1) {
-        type = "INT_CONST";
+        type = "integerConstant";
     } else if (token[0] == '"' && token[token.length() - 1] == '"') {
-        type = "STRING_CONST";
+        type = "stringConstant";
     } else if (find(keywords.begin(), keywords.end(), token) != keywords.end()) {
-        type = "KEYWORD";
+        type = "keyword";
     } else if (token.length() == 1) {
         int ascii = token[0];
-        if ((ascii > 122 && ascii < 127) || (ascii > 58 && ascii < 63) || (ascii > 42 && ascii < 48) || (ascii > 90 && ascii < 94) || ascii == 38 || ascii == 40 || ascii == 41) {
-            type = "SYMBOL";
+        if ((ascii > 122 && ascii < 127) || (ascii > 58 && ascii < 63) || (ascii > 39 && ascii < 48) || (ascii > 90 && ascii < 94) || ascii == 38 || ascii == 40 || ascii == 41) {
+            type = "symbol";
         } else {
-            type = "IDENTIFIER";
+            type = "identifier";
         }
     } else {
-        type = "IDENTIFIER";
+        type = "identifier";
     }
     return type;
 }

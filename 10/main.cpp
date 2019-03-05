@@ -17,6 +17,7 @@ int main(int argc, char * argv[]) {
         string infile = get_current_path() + "/" + argv[1];
         string outfile = get_current_path() + "/boof.xml";
         struct stat buffer;
+        cout << infile.c_str() << endl;
         if (stat(infile.c_str(), &buffer) == 0) {
             if (S_ISREG(buffer.st_mode)) {
                 cout << "FILE" << endl;
