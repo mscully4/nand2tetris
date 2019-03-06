@@ -25,7 +25,7 @@ void remove_comments(string& boof) {
     }
 }
 
-void split(string& s, char delimiter, vector<string>& tokens) {
+/*void split(string& s, char delimiter, vector<string>& tokens) {
     vector<string> chork;
     int pos = 0;
     std::string token;
@@ -43,7 +43,6 @@ void split(string& s, char delimiter, vector<string>& tokens) {
     
     for (int j=0; j<chork.size(); ++j) {
         string boof = chork[j];
-        //cout << boof << endl;
         if (boof[0] == '(') {
             tokens.push_back("(");
             if (boof.length() > 1 && boof[1] == '-') {
@@ -54,6 +53,7 @@ void split(string& s, char delimiter, vector<string>& tokens) {
             }
             tokens.push_back(")");
         } else if (boof[boof.length() - 1] == ')') {
+            //cout << boof << endl;
             int period, loc;
             if ((period = boof.find('.')) != string::npos) {
                 tokens.push_back(boof.substr(0, period));
@@ -61,10 +61,21 @@ void split(string& s, char delimiter, vector<string>& tokens) {
                 tokens.push_back(".");
             }
             if ((loc = boof.find('(')) != string::npos) {
-                tokens.push_back(boof.substr(0, loc));
-                boof.erase(0, loc + 1); 
-                tokens.push_back("(");
-                //figure out a way to parse parameters
+                if (boof.find('(') + 1 != boof.find(')')) {
+                    int lparen = boof.find('('), rparen = boof.find(')');
+                    tokens.push_back(boof.substr(0, boof.find('(')));    
+                    tokens.push_back(boof.substr(lparen, 1));    
+                    tokens.push_back(boof.substr(lparen + 1, rparen - lparen - 1));
+                    tokens.push_back(boof.substr(rparen, 1)); 
+                } else {
+                    tokens.push_back(boof.substr(0, loc));
+                    boof.erase(0, loc + 1); 
+                    tokens.push_back("(");
+                    //figure out a way to parse parameters
+                    tokens.push_back(")");
+                }
+            } else {
+                tokens.push_back(boof.substr(0, boof.length() - 1));
                 tokens.push_back(")");
             }
         } else if (boof[0] == '"') {
@@ -92,23 +103,70 @@ void split(string& s, char delimiter, vector<string>& tokens) {
         } else if (boof.find(',') != string::npos) {
             tokens.push_back(boof.substr(0, boof.find(',')));
             tokens.push_back(",");
+        } else if (boof.find('(') != string::npos) {
+            if (boof.find('.') != string::npos) {
+                int period = boof.find('.'), lparen = boof.find('(');
+                cout << boof.substr(0, period) << endl;
+                cout << boof.substr(period, 1) << endl;
+                cout << boof.substr(period+1, lparen) << endl;
+            } else {
+                tokens.push_back(boof.substr(0, boof.find('(')));
+                tokens.push_back("(");
+                tokens.push_back(boof.substr(boof.find('(') + 1, boof.length() - 1));
+            }
         } else {
             tokens.push_back(boof);
         }
     }
-}
+//    for (int i=0; i<tokens.size(); ++i) cout << tokens[i] << endl;
+}*/
 
+void split(string& s, vector<string>& tokens) {
+    vector<int> positions {};
+    string delimiters = " ,.-;*()[]{}\"";
+    for (int i=0; i<s.length(); ++i) {
+        if (delimiters.find(s[i]) != string::npos) {
+            positions.push_back(i);
+        }
+    }
+    string buffer;
+    for (int j=0; j<positions.size(); ++j) {
+        if (s[positions[j]] == '"') {
+            string literal = s.substr(positions[j], s.find('"', positions[j]+1) - positions[j] + 1);
+            tokens.push_back(literal);
+            ++j;
+            while(s[positions[j]] != '"') {
+                ++j;
+            };
+        } else if (s[positions[j]] == ' ') {  
+            buffer = s.substr((j == 0) ? 0 : (positions[j-1] + 1), (j == 0) ? positions[j] : positions[j] - positions[j-1] - 1);
+            if (buffer.length() > 0) {
+                tokens.push_back(buffer);
+            }
+        } else if (s[positions[j]] == ',' || s[positions[j]] == ';' || s[positions[j]] == '(' || s[positions[j]] == ')' || s[positions[j]] == '.' || s[positions[j]] == '[' || s[positions[j]] == ']') {
+            buffer = s.substr((j == 0) ? 0 : (positions[j-1] + 1), (j == 0) ? positions[j] : positions[j] - positions[j-1] - 1);
+            if (buffer.length() > 0) tokens.push_back(buffer); 
+            buffer = s.substr(positions[j], 1);
+            if (buffer.length() > 0) tokens.push_back(buffer); 
+        } else {
+            tokens.push_back(s.substr(positions[j], 1));
+        }
+    }
+}
 
 JackTokenizer::JackTokenizer(const string& path) {
     ifstream infile(path);
     string line;
+    int counter = 0;
     if (infile) {
         while (getline(infile, line)) {
             remove_comments(line);
             trim(line);
             if (!line.empty() && !(line[0] == '/' && line[1] == '/') && !(line[0] == '/' && line[1] == '*')) {
-                split(line, ' ', tokens);
+                split(line, tokens);
             }
+            ++counter;
+            if (counter > 300) break;
         }
     }
 };
