@@ -25,105 +25,9 @@ void remove_comments(string& boof) {
     }
 }
 
-/*void split(string& s, char delimiter, vector<string>& tokens) {
-    vector<string> chork;
-    int pos = 0;
-    std::string token;
-    while ((pos = s.find(delimiter)) != std::string::npos) {
-        token = s.substr(0, pos);
-        chork.push_back(token);
-        s.erase(0, pos + 1);
-    }
-    if (s[s.length() - 1] == ';') {
-        chork.push_back(s.substr(0, s.length() - 1));
-        chork.push_back(";");
-    } else {
-        chork.push_back(s); 
-    }
-    
-    for (int j=0; j<chork.size(); ++j) {
-        string boof = chork[j];
-        if (boof[0] == '(') {
-            tokens.push_back("(");
-            if (boof.length() > 1 && boof[1] == '-') {
-                tokens.push_back("-");
-                tokens.push_back(boof.substr(2, boof.length() - 3));
-            } else {
-                tokens.push_back(boof.substr(1, boof.length() - 2));
-            }
-            tokens.push_back(")");
-        } else if (boof[boof.length() - 1] == ')') {
-            //cout << boof << endl;
-            int period, loc;
-            if ((period = boof.find('.')) != string::npos) {
-                tokens.push_back(boof.substr(0, period));
-                boof.erase(0, period + 1);
-                tokens.push_back(".");
-            }
-            if ((loc = boof.find('(')) != string::npos) {
-                if (boof.find('(') + 1 != boof.find(')')) {
-                    int lparen = boof.find('('), rparen = boof.find(')');
-                    tokens.push_back(boof.substr(0, boof.find('(')));    
-                    tokens.push_back(boof.substr(lparen, 1));    
-                    tokens.push_back(boof.substr(lparen + 1, rparen - lparen - 1));
-                    tokens.push_back(boof.substr(rparen, 1)); 
-                } else {
-                    tokens.push_back(boof.substr(0, loc));
-                    boof.erase(0, loc + 1); 
-                    tokens.push_back("(");
-                    //figure out a way to parse parameters
-                    tokens.push_back(")");
-                }
-            } else {
-                tokens.push_back(boof.substr(0, boof.length() - 1));
-                tokens.push_back(")");
-            }
-        } else if (boof[0] == '"') {
-            if (boof.find(1, '"') != string::npos) {
-                tokens.push_back(boof);
-            } else {
-                string str = boof.substr(0, boof.length());
-                while (true) {
-                    ++j;
-                    str += " ";
-                    if (chork[j].find('"') != string::npos) {
-                        str += chork[j].substr(0, chork[j].length());
-                        break;
-                    } else {
-                        str += chork[j];
-                    }
-                }
-                tokens.push_back(str);
-            }
-        } else if (boof.find('[') != string::npos) {
-            tokens.push_back(boof.substr(0, boof.find('[')));
-            tokens.push_back(boof.substr(boof.find('['), boof.find('[')));
-            tokens.push_back(boof.substr(boof.find('[') + 1, boof.find(']') - 2));
-            tokens.push_back(boof.substr(boof.find(']'), boof.find(']')));
-        } else if (boof.find(',') != string::npos) {
-            tokens.push_back(boof.substr(0, boof.find(',')));
-            tokens.push_back(",");
-        } else if (boof.find('(') != string::npos) {
-            if (boof.find('.') != string::npos) {
-                int period = boof.find('.'), lparen = boof.find('(');
-                cout << boof.substr(0, period) << endl;
-                cout << boof.substr(period, 1) << endl;
-                cout << boof.substr(period+1, lparen) << endl;
-            } else {
-                tokens.push_back(boof.substr(0, boof.find('(')));
-                tokens.push_back("(");
-                tokens.push_back(boof.substr(boof.find('(') + 1, boof.length() - 1));
-            }
-        } else {
-            tokens.push_back(boof);
-        }
-    }
-//    for (int i=0; i<tokens.size(); ++i) cout << tokens[i] << endl;
-}*/
-
 void split(string& s, vector<string>& tokens) {
     vector<int> positions {};
-    string delimiters = " ,.-;*()[]{}\"";
+    string delimiters = " ,.-~;*()[]{}\"";
     for (int i=0; i<s.length(); ++i) {
         if (delimiters.find(s[i]) != string::npos) {
             positions.push_back(i);
@@ -162,11 +66,35 @@ JackTokenizer::JackTokenizer(const string& path) {
         while (getline(infile, line)) {
             remove_comments(line);
             trim(line);
-            if (!line.empty() && !(line[0] == '/' && line[1] == '/') && !(line[0] == '/' && line[1] == '*')) {
+            if (!line.empty() && (line.find("/*") == string::npos)) {
                 split(line, tokens);
+            } else if (!line.empty()) {
+                //block comment opener found
+                if (line.find("*/") != string::npos) {
+                    //block comment closes on the same line it opened
+                    line.erase(line.find("/*"), line.find("*/")+2);
+                    //block comment is removed from line
+                    if (!line.empty()) {
+                        //the block comment has been removed from the line, but there is actual code left on the line
+                        split(line, tokens);
+                        cout << line << endl;
+                    }
+                } else {
+                    //block comment that spans multiple lines
+                    //get new line until we find the closing bracket for the block comment
+                    while (getline(infile, line)) {
+                        //found it, now stop reading new lines
+                        if (line.find("*/") != string::npos) {
+                            break;
+                        }
+                    } 
+                    line.erase(0, line.find("*/") + 2);
+                    if (!line.empty()) {
+                        split(line, tokens);
+                    }
+                }
             }
             ++counter;
-            if (counter > 300) break;
         }
     }
 };

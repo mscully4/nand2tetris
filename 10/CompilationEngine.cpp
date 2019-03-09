@@ -14,24 +14,30 @@ CompilationEngine::CompilationEngine(const string& path, JackTokenizer * tokeniz
     this->tokenizer = tokenizer;
     this->outfile.open(path);
     compile_class();
-    /*while(tokenizer->has_more_tokens()) {
-        outfile << tokenizer->tokens[tokenizer->iterator] << endl;
-        tokenizer->advance();
-    }*/
 };
 
 void CompilationEngine::write(const string& token, const string& type) {
-    outfile << "<" + type + "> " + token + " </" + type + ">" << endl;
+    bool alt = false;
+    string output = token;
+    if (type == "symbol") {
+        if (token == ">") {
+            output = "&gt;";
+            alt = true;
+        } else if (token == "<") {
+            output = " &lt;";
+            alt = true;
+        } else if (token == "&") {
+            output = "&amp;";
+        }
+    }
+    outfile << "<" + type + "> " + output + " </" + type + ">" << endl;
 }
 
 void CompilationEngine::compile_class() {
-    this->outfile << "<class>" << endl;
+    outfile << "<class>" << endl;
     while (tokenizer->has_more_tokens()) {
         token = tokenizer->tokens[tokenizer->iterator];
-        //outfile << tokenizer->iterator << endl;
-        if (token == "{" && tokenizer->tokens[tokenizer->iterator + 1] == "static") {
-            write(token, tokenizer->tokenType(token));
-            tokenizer->advance();
+        if (token == "static" || token == "field") {
             compile_class_var_dec();
         } else if (token == "function" || token == "constructor" || token == "method") {
             compile_subroutine();
@@ -100,16 +106,17 @@ void CompilationEngine::compile_subroutine() {
 
 void CompilationEngine::compile_parameter_list() {
     outfile << "<parameterList>" << endl;
-    while (true) {
-        string token = tokenizer->tokens[tokenizer->iterator];
-        if (token == ")") {
-            outfile << "</parameterList>" << endl;
-            write(token, tokenizer->tokenType(token));
-            break;
-        }
+    string token;
+    while ((token = tokenizer->tokens[tokenizer->iterator]) != ")") {
         write(token, tokenizer->tokenType(token));
         if (tokenizer->has_more_tokens()) tokenizer->advance();    
     }
+    
+    outfile << "</parameterList>" << endl; 
+    
+    token = tokenizer->tokens[tokenizer->iterator];
+    write(token, tokenizer->tokenType(token));
+    //tokenizer->advance();
 }
 
 void CompilationEngine::compile_subroutine_body() {
@@ -179,7 +186,7 @@ void CompilationEngine::compile_statement() {
             //outfile << "DO" << endl;
             compile_do();
         } else if (token == "return") {
-            //outfile << "RETURN" << endl;
+            //cout  << "RETURN" << endl;
             compile_return();
         } else if (token == "}") {
             break;
@@ -216,6 +223,7 @@ void CompilationEngine::compile_expression() {
     outfile << "<expression>" << endl;
     token = tokenizer->tokens[tokenizer->iterator];
     while(token != ";" && token != "]" && token != ")") {
+        //cout << token << endl;
         //this is only true when a function is being called
         if (token == "(" && tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator - 1]) == "identifier") {
             write(token, tokenizer->tokenType(token));
@@ -231,12 +239,29 @@ void CompilationEngine::compile_expression() {
                 compile_term();
                 token = tokenizer->tokens[tokenizer->iterator];
             } else if (token == "-") {
+                if (tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator - 1]) == "identifier") {
+                    cout << "BOOF" << endl;
+                    //write the negative sign
+                    write(token, tokenizer->tokenType(token));
+                    tokenizer->advance();
+                    
+                    //handle the actual term
+                    compile_term();
+                    token = tokenizer->tokens[tokenizer->iterator];
+                } else {
+                    //cout << "CHORK" << endl;
+                    compile_term();
+                    tokenizer->advance();
+                    token = tokenizer->tokens[tokenizer->iterator];
+                }
+            } else if (token == "~") {
                 compile_term();
+                token = tokenizer->tokens[tokenizer->iterator];
+            } else if (token == ",") {
+                break;
+                write(token, tokenizer->tokenType(token));
                 tokenizer->advance();
                 token = tokenizer->tokens[tokenizer->iterator];
-                /*write(token, tokenizer->tokenType(token));
-                tokenizer->advance();
-                token = tokenizer->tokens[tokenizer->iterator];*/
             } else {
                 write(token, tokenizer->tokenType(token));
                 tokenizer->advance();
@@ -305,10 +330,17 @@ void CompilationEngine::compile_term() {
         outfile << "<term>" << endl;
         write(token, tokenizer->tokenType(token));
         outfile << "</term>" << endl;
+    } else if (token == "~") {
+        //cout << token << endl;
+        write(token, tokenizer->tokenType(token));
+        tokenizer->advance();
+        compile_term();
+        //tokenizer->advance();
     } else {
         //int, string or keyword
         //these will always be one token
         if (token[0] == '"') {
+            //cout << token << endl;
             write(token.substr(1, token.length() - 2), tokenizer->tokenType(token));
             tokenizer->advance();
         } else {
@@ -329,13 +361,24 @@ void CompilationEngine::compile_while() {
     tokenizer->advance();
     write(tokenizer->tokens[tokenizer->iterator], tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator]));
     tokenizer->advance();
+   // cout << tokenizer->tokens[tokenizer->iterator] << endl; 
     
     //need to take care of the expression
-    
+    compile_expression();    
+ 
     //write the closing parenthesis of the condition
     write(tokenizer->tokens[tokenizer->iterator], tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator]));
     tokenizer->advance();
-    
+
+    //write the opening curly brace
+    write(tokenizer->tokens[tokenizer->iterator], tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator]));
+    tokenizer->advance();
+   
+    compile_statement();
+        
+    //write the closing curly brace
+    write(tokenizer->tokens[tokenizer->iterator], tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator]));
+ 
     //closing bracket
     outfile << "</whileStatement>" << endl;
 }
@@ -360,18 +403,14 @@ void CompilationEngine::compile_if() {
     tokenizer->advance();
 
     compile_statement();
-    //string token;
-    //while ((token = tokenizer->tokens[tokenizer->iterator]) != "}") {
-      //  outfile << token << endl;
-       // tokenizer->advance();
-    //}
-
 
     //write the closing curly brace
     write(tokenizer->tokens[tokenizer->iterator], tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator]));
-    tokenizer->advance();
-
-    if ((token = tokenizer->tokens[tokenizer->iterator]) == "else") {
+    
+    if (tokenizer->tokens[tokenizer->iterator + 1] == "else") {
+        tokenizer->advance();
+        token = tokenizer->tokens[tokenizer->iterator];
+        
         //outfile << "ELSE" << endl;
         //write the else keyword
         write(token, tokenizer->tokenType(token));
@@ -424,35 +463,37 @@ void CompilationEngine::compile_do() {
 
 void CompilationEngine::compile_expression_list() {
     outfile << "<expressionList>" << endl;
-    
-    string token;
-   /* if ((token = tokenizer->tokens[tokenizer->iterator]) == ")") {
-        write(token, tokenizer->tokenType(token));
-        tokenizer->advance();
-    } else {
-*/  while ((token = tokenizer->tokens[tokenizer->iterator]) != ")") {
-        write(token, tokenizer->tokenType(token));
-        tokenizer->advance();
+
+    token = tokenizer->tokens[tokenizer->iterator];
+    //if the list is not empty
+    if (token != ")") {
+        while ((token = tokenizer->tokens[tokenizer->iterator]) != ")") {
+            compile_expression();
+            if ((token = tokenizer->tokens[tokenizer->iterator]) == ",") {
+                write(token, tokenizer->tokenType(token));
+                tokenizer->advance();
+            }
+        }
     }
     outfile << "</expressionList>" << endl;
 }
 
 void CompilationEngine::compile_return() {
     outfile << "<returnStatement>" << endl;
+
     
-    /*string token = tokenizer->tokens[tokenizer->iterator];
+    //write the return keyword    
+    string token = tokenizer->tokens[tokenizer->iterator];
     write(token, tokenizer->tokenType(token));
     tokenizer->advance();
     
-    string token = tokenizer->tokens[tokenizer->iterator];
-    outfile << tokenizer->tokens[tokenizer->iterator] << endl;
-*/
-    //write out until a semicolon is reached
-    while (tokenizer->tokens[tokenizer->iterator] != ";") {
-        string token = tokenizer->tokens[tokenizer->iterator];
-        write(token, tokenizer->tokenType(token));
-        tokenizer->advance();
+    //check if there is a return value
+    token = tokenizer->tokens[tokenizer->iterator];
+    string type = tokenizer->tokenType(token);
+    if (type == "keyword" || type == "identifier") {
+        compile_expression();
     }
+
     //writing the final semicolon
     token = tokenizer->tokens[tokenizer->iterator];
     write(token, tokenizer->tokenType(token));

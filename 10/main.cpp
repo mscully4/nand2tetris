@@ -13,9 +13,10 @@ string get_current_path() {
 
 int main(int argc, char * argv[]) {
 
-    if (argc == 2) {
+    if (argc == 3) {
         string infile = get_current_path() + "/" + argv[1];
-        string outfile = get_current_path() + "/boof.xml";
+        string outfile = get_current_path() + "/" + argv[2];
+        cout << outfile << endl;
         struct stat buffer;
         cout << infile.c_str() << endl;
         if (stat(infile.c_str(), &buffer) == 0) {
