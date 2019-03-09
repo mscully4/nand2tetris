@@ -108,9 +108,9 @@ string JackTokenizer::tokenType(string token) {
         type = "stringConstant";
     } else if (find(keywords.begin(), keywords.end(), token) != keywords.end()) {
         type = "keyword";
-    } else if (token.length() == 1) {
+    } else if (token.length() == 1 || token == "&lt" || token == "&gt") {
         int ascii = token[0];
-        if ((ascii > 122 && ascii < 127) || (ascii > 58 && ascii < 63) || (ascii > 39 && ascii < 48) || (ascii > 90 && ascii < 94) || ascii == 38 || ascii == 40 || ascii == 41) {
+        if ((ascii > 122 && ascii < 127) || (ascii > 58 && ascii < 63) || (ascii > 39 && ascii < 48) || (ascii > 90 && ascii < 94) || ascii == 38 || token == "&lt" || token == "&rt") {
             type = "symbol";
         } else {
             type = "identifier";
