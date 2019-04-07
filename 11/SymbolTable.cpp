@@ -83,7 +83,7 @@ void SymbolTable::startSubroutine(const string& className) {
     subroutine_table = HashTable<string, vector<string>>(11);
     counters.put("argument", 0);
     counters.put("var", 0);
-    this->define("this", className, "argument"); 
+    //this->define("this", className, "argument"); 
 }
 
 void SymbolTable::startClass() {

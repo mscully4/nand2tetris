@@ -11,6 +11,7 @@
 using namespace std;
 
 CompilationEngine::CompilationEngine(const string& path, JackTokenizer * tokenizer) {
+    cout << "INIT" << endl;
     this->tokenizer = tokenizer;
     this->outfilePath = path;
     this->whileCounter = 0;
@@ -98,7 +99,6 @@ void CompilationEngine::compile_subroutine() {
     tokenizer->advance();
 
     //we need to write the function name
-    writer.writeFunction(name, 0);
 
     //advance past the opening parenthesis
     tokenizer->advance();
@@ -111,13 +111,14 @@ void CompilationEngine::compile_subroutine() {
     
     //advance past the opening curly brace
     tokenizer->advance();
-    //cout << tokenizer->tokens[tokenizer->iterator] << endl;
 
     //compile the body of the subroutine
-    compile_subroutine_body();
+    compile_subroutine_body(name);
     
     //advance past the closing curly brace
     tokenizer->advance();
+
+    writer.output << endl;
 }
 
 void CompilationEngine::compile_parameter_list() {
@@ -138,11 +139,18 @@ void CompilationEngine::compile_parameter_list() {
     write(token, tokenizer->tokenType(token));
 }
 
-void CompilationEngine::compile_subroutine_body() {
+void CompilationEngine::compile_subroutine_body(string& subroutineName) {
+    int localVars = 0;
+    
+    //we need to count the number of local variables for write the function 
+    while (tokenizer->tokens[tokenizer->iterator] == "var") {
+        localVars += compile_var_dec();
+        tokenizer->advance();
+    }
+    writer.writeFunction(subroutineName, localVars);
+
     //we are looking for the last curly brace as the end of the subroutine body
-    int curly = 1;
-    
-    
+    int curly = 1; 
     while (curly > 0) {
         token = tokenizer->tokens[tokenizer->iterator];
         if (token == "{") {
@@ -163,18 +171,17 @@ void CompilationEngine::compile_subroutine_body() {
     }
 }
 
-void CompilationEngine::compile_var_dec() {
-    outfile << "<varDec>" << endl;
+int CompilationEngine::compile_var_dec() {
     string kind = tokenizer->tokens[tokenizer->iterator], type = tokenizer->tokens[tokenizer->iterator+1];
-    //cout << tokenizer->tokens[tokenizer->iterator] << endl;
+    int declarations = 0;
     while((token = tokenizer->tokens[tokenizer->iterator]) != ";") {
         if (token != kind && token != type && token != ",") {
             table.define(token, type, kind);
+            declarations++;
         }
         tokenizer->advance();
     }
-    write(tokenizer->tokens[tokenizer->iterator], tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator]));
-    outfile << "</varDec>" << endl;
+    return declarations;
 }
 
 void CompilationEngine::compile_statement() {
@@ -245,18 +252,13 @@ void CompilationEngine::compile_expression() {
             } else if (tokenizer->tokenType(token) != "symbol" || token == "(") {
                 compile_term();
                 token = tokenizer->tokens[tokenizer->iterator];
-            } else if (token == "-") {
-                if (tokenizer->tokens[tokenizer->iterator - 1] == "(") {
-                    compile_term();
-                    tokenizer->advance();
-                    token = tokenizer->tokens[tokenizer->iterator];
-                } else {
-                    //handle the actual term
-                    tokenizer->advance();
-                    compile_term();
-                    writer.writeArithmetic("neg");
-                    token = tokenizer->tokens[tokenizer->iterator];
-                }
+            } else if (token == "-" && tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator - 1]) == "symbol") {
+                //this will execute on negative numbers but not on subtraction operations
+                //compile the term after the negative sign and then write the negation
+                tokenizer->advance();
+                compile_term();
+                writer.writeArithmetic("neg");
+                token = tokenizer->tokens[tokenizer->iterator];
             } else if (token == ",") {
                 break;
                 write(token, tokenizer->tokenType(token));
@@ -452,7 +454,8 @@ void CompilationEngine::compile_do() {
     
     //handle the arguments
     int args = compile_expression_list();
-   
+  
+     
     //now that our arguments are on the stack, call the funciton
     writer.writeCall(name, args);
 

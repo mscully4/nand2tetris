@@ -59,6 +59,7 @@ void split(string& s, vector<string>& tokens) {
 }
 
 JackTokenizer::JackTokenizer(const string& path) {
+    cout << "JACK" << endl;
     ifstream infile(path);
     string line;
     int counter = 0;
