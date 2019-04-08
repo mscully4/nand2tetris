@@ -31,29 +31,27 @@ int main(int argc, char * argv[]) {
                 DIR * dir;
                 struct dirent * ent;
                 if ((dir = opendir(argv[1])) != NULL) {
-                    string in = string(get_current_path()) + string("/") + string(argv[1]) + string("Main.jack");
-                    string out = string(get_current_path()) + string("/") + string(argv[1]) + string("Main.vm"); 
-                    JackTokenizer tokenizer(in);
-                    CompilationEngine engine(out, &tokenizer);
                     struct stat buffer;
-                    /*stat("Square/Main.jack", &buffer);
-                    if (S_ISREG(buffer.st_mode)) {
-                        string in = string(get_current_path()) + string("/") + string(argv[1]) + string("Main.jack");
-                        string out = string(get_current_path()) + string("/") + string(argv[1]) + string("Main.vm"); 
-                        JackTokenizer tokenizer(in);
-                        CompilationEngine engine(out, &tokenizer);
-                    }*/
+                    stat("Square/Main.jack", &buffer);
+                    //if (S_ISREG(buffer.st_mode)) {
+                        //string in = string(get_current_path()) + string("/") + string(argv[1]) + string("Main.jack");
+                        //string out = string(get_current_path()) + string("/") + string(argv[1]) + string("Main.vm"); 
+                        //JackTokenizer tokenizer(in);
+                        //CompilationEngine engine(out, &tokenizer);
+                    //}
                     while ((ent=readdir(dir)) != NULL) {
                         string x = (string)argv[1] + ent->d_name;
                         stat(x.c_str(), &buffer);
                         if (S_ISREG(buffer.st_mode)) {
                             int len = x.length();
                             if (x[len-5] == '.' && x[len-4] == 'j' && x[len-3] == 'a' && x[len-2] == 'c' && x[len-1] == 'k') {
-                                in = string(get_current_path()) + string("/") + x;
-                                out = string(get_current_path()) + string("/") + x.replace(len-5, 5, ".vm");
+                                string in = string(get_current_path()) + string("/") + x;
+                                string out = string(get_current_path()) + string("/") + x.replace(len-5, 5, ".vm");
                                 cout << in << endl;
-                                tokenizer = JackTokenizer(in);
-                                engine = CompilationEngine(out, &tokenizer);
+                                JackTokenizer * tokenizer = new JackTokenizer(in);
+                                CompilationEngine * engine = new CompilationEngine(out, tokenizer);
+                                delete tokenizer;
+                                delete engine;
                             }
                         }
                     }

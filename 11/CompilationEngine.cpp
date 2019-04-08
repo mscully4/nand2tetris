@@ -57,6 +57,7 @@ void CompilationEngine::compile_class() {
         }
     }
     outfile << "</class>" << endl;
+    table.resetClass();
 }
 
 void CompilationEngine::compile_class_var_dec() {
@@ -436,20 +437,27 @@ void CompilationEngine::compile_if() {
 }
 
 void CompilationEngine::compile_do() {
-    outfile << "<doStatement>" << endl;
     //advance past the do token 
     tokenizer->advance();
-
-    //store the class the function resides in
-    string name = tokenizer->tokens[tokenizer->iterator];
-    tokenizer->advance();
-    
-    for (int i=0; i<2; ++i) {
-        name += tokenizer->tokens[tokenizer->iterator];
+   
+    //store the name of the function being called 
+    string name;
+    //this will only execute if a method outside the class is being called, otherwise it is a function or a method within the class
+    if (tokenizer->tokens[tokenizer->iterator + 1] == ".") {
+        //store the class the function resides in
+        name = tokenizer->tokens[tokenizer->iterator];
+        tokenizer->advance();
+        
+        for (int i=0; i<2; ++i) {
+            name += tokenizer->tokens[tokenizer->iterator];
+            tokenizer->advance();
+        }
+    } else {
+        name = tokenizer->tokens[tokenizer->iterator];
         tokenizer->advance();
     }
     
-    //advance the opening parenthesis
+    //advance past the opening parenthesis
     tokenizer->advance();
     
     //handle the arguments

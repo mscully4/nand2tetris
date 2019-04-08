@@ -1,93 +1,89 @@
 #include <iostream>
 #include <string>
+#include <map>
 #include "SymbolTable.h"
 using namespace std;
 
 SymbolTable::SymbolTable() {
-    this->counters.put("static", 0);
-    this->counters.put("field", 0);
-    this->counters.put("argument", 0);
-    this->counters.put("var", 0);
+    counters1.insert(pair<string, int>("static", 0));
+    counters1.insert(pair<string, int>("field", 0));
+    counters1.insert(pair<string, int>("argument", 0));
+    counters1.insert(pair<string, int>("var", 0));
 }
 
 void SymbolTable::define(const string& name, const string& type, const string& kind) {
-    int y;
-    counters.get(kind, y);
-    vector<string> x = {type, kind, to_string(y)};
+    map<string, int>::iterator itr;
+    itr = counters1.find(kind);
+    int z = itr->second;
+    vector<string> n = {type, kind, to_string(z)};
     if (kind == "static" || kind == "field") {
-        class_table.put(name, x);
+        classTable.insert(pair<string, vector<string>>(name, n));
     } else if (kind == "argument" || kind == "var") {
-        subroutine_table.put(name, x);
+        subroutineTable.insert(pair<string, vector<string>>(name, n));
     } else {
         cerr << "INVALID KIND" << endl;
     }
-    counters.put(kind, ++y);
+    counters1[kind]++;
 }
 
 int SymbolTable::varCount(const string& kind) {
-    int x;
-    counters.get(kind, x);
-    return x;
+    return counters1.find(kind)->second;
 }
 
 string SymbolTable::kindOf(const string& name) {
-    vector<string> x;
-    subroutine_table.get(name, x);
-    if (x.empty()) {
-        class_table.get(name, x);
-    }
-    if (!x.empty()) {
-        return x[1];
+    map<string, vector<string>>::iterator itr;
+    itr = subroutineTable.find(name);
+    if (itr != subroutineTable.end()) {
+        return itr->second[1];
     } else {
-        //cerr << "NO KIND FOUND IN MEMORY" << endl;
-        return "NONE";
+        itr = classTable.find(name);
+        return itr->second[1];
     }
+    
+    return "NONE";
 }
 
 string SymbolTable::typeOf(const string& name) {
+    map<string, vector<string>>::iterator itr;
     string kind = kindOf(name);
     vector<string> x;
     if (kind == "static" || kind == "field") {
-        class_table.get(name, x);
+        x = classTable.find(name)->second;
     } else if (kind == "argument" || kind == "var") {
-        subroutine_table.get(name, x);
+        x = subroutineTable.find(name)->second;
     }
 
     if (!x.empty()) {
         return x[0];
     } else {
-        //cerr << "NO TYPE FOUND IN MEMORY" << endl;
         return "NONE";
     }
-    return x[0]; 
 }
 
 int SymbolTable::indexOf(const string& name) {
+    map<string, vector<string>>::iterator itr;
     string kind = kindOf(name);
     vector<string> x;
     if (kind == "static" || kind == "field") {
-        class_table.get(name, x);
+        x = classTable.find(name)->second;
     } else if (kind == "argument" || kind == "var") {
-        subroutine_table.get(name, x);
+        x = subroutineTable.find(name)->second;
     }
 
     if (!x.empty()) {
         return stoi(x[2]);
     } else {
-        //cerr << "NO INDEX FOUND IN MEMORY" << endl;
         return -1;
     }
 }
 
 void SymbolTable::startSubroutine(const string& className) {
-    subroutine_table = HashTable<string, vector<string>>(11);
-    counters.put("argument", 0);
-    counters.put("var", 0);
+    subroutineTable = map<string, vector<string>>();
+    counters1["argument"] = 0;
+    counters1["var"] = 0;
     //this->define("this", className, "argument"); 
 }
 
-void SymbolTable::startClass() {
-    class_table = HashTable<string, vector<string>>(11);
-    counters.put("static", 0);
-    counters.put("field", 0);
+void SymbolTable::resetClass() {
+    classTable = map<string, vector<string>>();
 }

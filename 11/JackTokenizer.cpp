@@ -132,6 +132,7 @@ bool JackTokenizer::has_more_tokens() {
 
 void JackTokenizer::advance() {
     this->iterator += 1;
+   // cout << tokens[this->iterator] << endl;
 }
 
 
