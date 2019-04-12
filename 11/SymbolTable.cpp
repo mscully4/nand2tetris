@@ -35,12 +35,12 @@ string SymbolTable::kindOf(const string& name) {
     itr = subroutineTable.find(name);
     if (itr != subroutineTable.end()) {
         return itr->second[1];
-    } else {
+    } else if (classTable.find(name) != classTable.end()) {
         itr = classTable.find(name);
         return itr->second[1];
+    } else {
+        return "NONE";
     }
-    
-    return "NONE";
 }
 
 string SymbolTable::typeOf(const string& name) {

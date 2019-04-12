@@ -11,7 +11,6 @@
 using namespace std;
 
 CompilationEngine::CompilationEngine(const string& path, JackTokenizer * tokenizer) {
-    cout << "INIT" << endl;
     this->tokenizer = tokenizer;
     this->outfilePath = path;
     this->whileCounter = 0;
@@ -39,6 +38,7 @@ void CompilationEngine::write(const string& token, const string& type) {
 
 void CompilationEngine::compile_class() {
     this->className = tokenizer->tokens[tokenizer->iterator + 1];
+    this->classFields = 0;
     writer.openFile(outfilePath, className);
     while (tokenizer->has_more_tokens()) {
         token = tokenizer->tokens[tokenizer->iterator];
@@ -57,24 +57,25 @@ void CompilationEngine::compile_class() {
         }
     }
     outfile << "</class>" << endl;
-    table.resetClass();
 }
 
 void CompilationEngine::compile_class_var_dec() {
-    outfile << "<classVarDec>" << endl;
     string token;
+    int fields = 0;
     while (true) {
         token = tokenizer->tokens[tokenizer->iterator];
         write(token, tokenizer->tokenType(token));
         if (token == "static" || token == "field") {
             string boof = tokenizer->tokens[tokenizer->iterator + 2];
             table.define(tokenizer->tokens[tokenizer->iterator + 2], tokenizer->tokens[tokenizer->iterator + 1], token);
-            writer.writePop(table.kindOf(boof), table.indexOf(boof));
+            this->classFields++;
+            //writer.writePop(table.kindOf(boof), table.indexOf(boof));
             int counter = 3;
             while(tokenizer->tokens[tokenizer->iterator + counter] == ",") {
                 boof = tokenizer->tokens[tokenizer->iterator + counter + 1];
                 table.define(tokenizer->tokens[tokenizer->iterator + counter + 1], tokenizer->tokens[tokenizer->iterator + 1], token);
-                writer.writePop(table.kindOf(boof), table.indexOf(boof));
+                //writer.writePop(table.kindOf(boof), table.indexOf(boof));
+                this->classFields++;
                 counter += 2;
             }
         }
@@ -83,13 +84,19 @@ void CompilationEngine::compile_class_var_dec() {
             break;
         } 
         tokenizer->advance();
-        
     }
-    outfile << "</classVarDec>" << endl;
 }
 
 void CompilationEngine::compile_subroutine() {
     table.startSubroutine(className);
+
+    string token = tokenizer->tokens[tokenizer->iterator]; 
+    string subroutineType = token;
+    
+    //we only need to pass this as the first argument for methods, not constructors
+    if (subroutineType == "method") table.define("this", this->className, "argument");
+    
+
     //advance past the function token
     tokenizer->advance();
     //advance past the return type token
@@ -114,7 +121,7 @@ void CompilationEngine::compile_subroutine() {
     tokenizer->advance();
 
     //compile the body of the subroutine
-    compile_subroutine_body(name);
+    compile_subroutine_body(name, subroutineType);
     
     //advance past the closing curly brace
     tokenizer->advance();
@@ -140,7 +147,7 @@ void CompilationEngine::compile_parameter_list() {
     write(token, tokenizer->tokenType(token));
 }
 
-void CompilationEngine::compile_subroutine_body(string& subroutineName) {
+void CompilationEngine::compile_subroutine_body(string& subroutineName, string& type) {
     int localVars = 0;
     
     //we need to count the number of local variables for write the function 
@@ -149,6 +156,15 @@ void CompilationEngine::compile_subroutine_body(string& subroutineName) {
         tokenizer->advance();
     }
     writer.writeFunction(subroutineName, localVars);
+
+    if (type == "constructor") {
+        writer.writePush("constant", this->classFields);
+        writer.writeCall("Memory.alloc", 1);
+        writer.writePop("pointer", 0);
+    } else if (type == "method") {
+        writer.writePush("argument", 0);
+        writer.writePop("pointer", 0);
+    }
 
     //we are looking for the last curly brace as the end of the subroutine body
     int curly = 1; 
@@ -191,19 +207,14 @@ void CompilationEngine::compile_statement() {
     while (true) {
         string token = tokenizer->tokens[tokenizer->iterator];
         if (token == "let") {
-            //cout << "LET" << endl;
             compile_let();
         } else if (token == "while") {
-            //cout << "WHILE" << endl;
             compile_while();
         } else if (token == "if") {
-            //cout << "IF" << endl;
             compile_if();
         } else if (token == "do") {
-            //cout << "DO" << endl;
             compile_do();
         } else if (token == "return") {
-            //cout  << "RETURN" << endl;
             compile_return();
         } else if (token == "}") {
             break;
@@ -227,18 +238,24 @@ void CompilationEngine::compile_let() {
         
     } while(tokenizer->tokens[tokenizer->iterator-1] != "=");
     
+    token = tokenizer->tokens[tokenizer->iterator + 1];
+    
     //moving on to the actual expressions
     compile_expression();
 
     //pop the value onto the stack
-    writer.writePop(table.kindOf(varName), table.indexOf(varName));
+    if (table.kindOf(varName) == "field") {
+        writer.writePop("this", table.indexOf(varName));
+    } else {
+        writer.writePop(table.kindOf(varName), table.indexOf(varName));
+    }
 }
 
 
 void CompilationEngine::compile_expression() {
     outfile << "<expression>" << endl;
     token = tokenizer->tokens[tokenizer->iterator];
-    while(token != ";" && token != "]" && token != ")") {
+    while (token != ";" && token != "]" && token != ")") {
         //this is only true when a method is being called
         if (tokenizer->tokenType(token) == "identifier" && tokenizer->tokens[tokenizer->iterator + 1] == "." && tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator + 2]) == "identifier") {
             compile_term();
@@ -253,7 +270,7 @@ void CompilationEngine::compile_expression() {
             } else if (tokenizer->tokenType(token) != "symbol" || token == "(") {
                 compile_term();
                 token = tokenizer->tokens[tokenizer->iterator];
-            } else if (token == "-" && tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator - 1]) == "symbol") {
+            } else if (token == "-" && tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator - 1]) == "symbol" && tokenizer->tokens[tokenizer->iterator - 1] != ")") {
                 //this will execute on negative numbers but not on subtraction operations
                 //compile the term after the negative sign and then write the negation
                 tokenizer->advance();
@@ -341,15 +358,20 @@ void CompilationEngine::compile_expression() {
         } else if (tokenizer->tokenType(token) == "integerConstant") {
             writer.writePush("constant", stoi(token));
             tokenizer->advance();  
-        } else if (token == "true" || token == "false" || token == "null") {
-            if (token == "true") {
-                writer.writePush("constant", 0);
-                writer.writeArithmetic("not");
-            } else if (token == "false") {
-                writer.writePush("constant", 0);
+        } else if (tokenizer->tokenType(token) == "keyword") {
+            if (token == "true" || token == "false" || token == "null") {
+                if (token == "true") {
+                    writer.writePush("constant", 0);
+                    writer.writeArithmetic("not");
+                } else if (token == "false") {
+                    writer.writePush("constant", 0);
+                }
+                //also need null
+                tokenizer->advance();
+            } else if (token == "this") {
+                writer.writePush("pointer", 0);
+                tokenizer->advance();
             }
-            //also need null
-            tokenizer->advance();
         } else {
             //int, string or keyword
             //these will always be one token
@@ -437,31 +459,50 @@ void CompilationEngine::compile_if() {
 }
 
 void CompilationEngine::compile_do() {
+    //keep track of the number of arguments
+    int args = 0;
+
     //advance past the do token 
     tokenizer->advance();
    
     //store the name of the function being called 
     string name;
+    
     //this will only execute if a method outside the class is being called, otherwise it is a function or a method within the class
     if (tokenizer->tokens[tokenizer->iterator + 1] == ".") {
         //store the class the function resides in
-        name = tokenizer->tokens[tokenizer->iterator];
+        if (table.typeOf(tokenizer->tokens[tokenizer->iterator]) != "NONE") {
+            name = table.typeOf(tokenizer->tokens[tokenizer->iterator]);   
+            if (table.kindOf(tokenizer->tokens[tokenizer->iterator]) == "field") {
+                writer.writePush("this", 0);
+            } else {
+                writer.writePush("local", table.indexOf(tokenizer->tokens[tokenizer->iterator]));
+            }
+            args++;     
+        } else {
+            name = tokenizer->tokens[tokenizer->iterator];
+        }
+
         tokenizer->advance();
-        
+
         for (int i=0; i<2; ++i) {
             name += tokenizer->tokens[tokenizer->iterator];
             tokenizer->advance();
         }
     } else {
-        name = tokenizer->tokens[tokenizer->iterator];
+        name = this->className + "." + tokenizer->tokens[tokenizer->iterator];
         tokenizer->advance();
-    }
     
+        //push the object that the method is being called on onto the stack
+        writer.writePush("pointer", 0);
+        args++;
+    }
+
     //advance past the opening parenthesis
     tokenizer->advance();
     
     //handle the arguments
-    int args = compile_expression_list();
+    args += compile_expression_list();
   
      
     //now that our arguments are on the stack, call the funciton
@@ -472,6 +513,8 @@ void CompilationEngine::compile_do() {
         tokenizer->advance();
     }
 
+
+    writer.writePop("temp", 0);
     //final token is a semicolon
     
 }

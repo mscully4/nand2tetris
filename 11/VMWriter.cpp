@@ -14,6 +14,8 @@ void VMWriter::openFile(const string& path, const string& className) {
 void VMWriter::writePush(const string& segment, const int& index) {
     if (segment == "var") {
         this->output << "push local " << index << endl;
+    } else if (segment == "field") {
+        this->output << "push this " << index << endl;  
     } else {
         this->output << "push " << segment << " " << index << endl;
     }
@@ -22,6 +24,8 @@ void VMWriter::writePush(const string& segment, const int& index) {
 void VMWriter::writePop(const string& segment, const int& index) {
    if (segment == "var") {
         this->output << "pop local " << index << endl;        
+    } else if (segment == "field") {
+        this->output << "pop this " << endl;  
     } else {
         this->output << "pop " << segment << " " << index << endl;
 
