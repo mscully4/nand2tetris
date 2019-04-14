@@ -68,14 +68,12 @@ void CompilationEngine::compile_class_var_dec() {
         if (token == "static" || token == "field") {
             string boof = tokenizer->tokens[tokenizer->iterator + 2];
             table.define(tokenizer->tokens[tokenizer->iterator + 2], tokenizer->tokens[tokenizer->iterator + 1], token);
-            this->classFields++;
-            //writer.writePop(table.kindOf(boof), table.indexOf(boof));
+            if (token == "field") this->classFields++;
             int counter = 3;
             while(tokenizer->tokens[tokenizer->iterator + counter] == ",") {
                 boof = tokenizer->tokens[tokenizer->iterator + counter + 1];
                 table.define(tokenizer->tokens[tokenizer->iterator + counter + 1], tokenizer->tokens[tokenizer->iterator + 1], token);
-                //writer.writePop(table.kindOf(boof), table.indexOf(boof));
-                this->classFields++;
+                if (token == "field") this->classFields++;
                 counter += 2;
             }
         }
@@ -251,7 +249,7 @@ void CompilationEngine::compile_let() {
         writer.writePop("that", 0);
     } 
     //in the case of a field, we use this instead of field
-    else if (table.kindOf(varName) == "field") {
+    if (table.kindOf(varName) == "field") {
         writer.writePop("this", table.indexOf(varName));
     } else {
         writer.writePop(table.kindOf(varName), table.indexOf(varName));
@@ -318,7 +316,6 @@ void CompilationEngine::compile_expression() {
                 //this is a method
                 string origin = tokenizer->tokens[tokenizer->iterator - 1], methodName = tokenizer->tokens[tokenizer->iterator + 1];
                 while ((token = tokenizer->tokens[tokenizer->iterator]) != "(") {
-                    write(token, tokenizer->tokenType(token));
                     tokenizer->advance();
                 }
                 //write past the (
@@ -329,7 +326,14 @@ void CompilationEngine::compile_expression() {
 
                 //advance past the )
                 tokenizer->advance();
-            
+                
+                if (table.kindOf(origin) == "field") {
+                    int index = table.indexOf(origin);
+                    origin = table.typeOf(origin);
+                    writer.writePush("this", index);
+                    args++;
+                }
+
                 //write the call to the function
                 writer.writeCall(origin + "." + methodName, args);
             } else if (token == "[") {
@@ -489,7 +493,7 @@ void CompilationEngine::compile_do() {
         if (table.typeOf(tokenizer->tokens[tokenizer->iterator]) != "NONE") {
             name = table.typeOf(tokenizer->tokens[tokenizer->iterator]);   
             if (table.kindOf(tokenizer->tokens[tokenizer->iterator]) == "field") {
-                writer.writePush("this", 0);
+                writer.writePush("this", table.indexOf(tokenizer->tokens[tokenizer->iterator]));
             } else {
                 writer.writePush("local", table.indexOf(tokenizer->tokens[tokenizer->iterator]));
             }
