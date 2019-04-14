@@ -19,23 +19,6 @@ CompilationEngine::CompilationEngine(const string& path, JackTokenizer * tokeniz
     compile_class();
 };
 
-void CompilationEngine::write(const string& token, const string& type) {
-    /*bool alt = false;
-    string output = token;
-    if (type == "symbol") {
-        if (token == ">") {
-            output = "&gt;";
-            alt = true;
-        } else if (token == "<") {
-            output = " &lt;";
-            alt = true;
-        } else if (token == "&") {
-            output = "&amp;";
-        }
-    }
-    outfile << "<" + type + "> " + output + " </" + type + ">" << endl;*/
-}
-
 void CompilationEngine::compile_class() {
     this->className = tokenizer->tokens[tokenizer->iterator + 1];
     this->classFields = 0;
@@ -48,7 +31,6 @@ void CompilationEngine::compile_class() {
             compile_subroutine();
         }
         else {
-            write(token, tokenizer->tokenType(token));
             if (tokenizer->has_more_tokens()) {
                 tokenizer->advance();
             } else {
@@ -56,7 +38,6 @@ void CompilationEngine::compile_class() {
             }   
         }
     }
-    outfile << "</class>" << endl;
 }
 
 void CompilationEngine::compile_class_var_dec() {
@@ -64,7 +45,6 @@ void CompilationEngine::compile_class_var_dec() {
     int fields = 0;
     while (true) {
         token = tokenizer->tokens[tokenizer->iterator];
-        write(token, tokenizer->tokenType(token));
         if (token == "static" || token == "field") {
             string boof = tokenizer->tokens[tokenizer->iterator + 2];
             table.define(tokenizer->tokens[tokenizer->iterator + 2], tokenizer->tokens[tokenizer->iterator + 1], token);
@@ -131,7 +111,6 @@ void CompilationEngine::compile_parameter_list() {
     string token;
     int counter = 0;
     while ((token = tokenizer->tokens[tokenizer->iterator]) != ")") {
-        write(token, tokenizer->tokenType(token));
         if (counter % 3 == 0) {
             string kitten = tokenizer->tokens[tokenizer->iterator + 1];
             table.define(tokenizer->tokens[tokenizer->iterator + 1], token, "argument");
@@ -142,7 +121,6 @@ void CompilationEngine::compile_parameter_list() {
     
     
     token = tokenizer->tokens[tokenizer->iterator];
-    write(token, tokenizer->tokenType(token));
 }
 
 void CompilationEngine::compile_subroutine_body(string& subroutineName, string& type) {
@@ -229,8 +207,8 @@ void CompilationEngine::compile_let() {
     do {
         string token = tokenizer->tokens[tokenizer->iterator];
         if (token == "[") {
-            writer.writePush(table.kindOf(varName), table.indexOf(varName));
             compile_expression();
+            writer.writePush(table.kindOf(varName), table.indexOf(varName));
             writer.writeArithmetic("+");
             writer.writePop("temp", 0);
             isArray = true;
@@ -249,7 +227,7 @@ void CompilationEngine::compile_let() {
         writer.writePop("that", 0);
     } 
     //in the case of a field, we use this instead of field
-    if (table.kindOf(varName) == "field") {
+    else if (table.kindOf(varName) == "field") {
         writer.writePop("this", table.indexOf(varName));
     } else {
         writer.writePop(table.kindOf(varName), table.indexOf(varName));
@@ -260,52 +238,45 @@ void CompilationEngine::compile_let() {
 void CompilationEngine::compile_expression() {
     token = tokenizer->tokens[tokenizer->iterator];
     while (token != ";" && token != "]" && token != ")") {
-        //this is only true when a method is being called
-        if (tokenizer->tokenType(token) == "identifier" && tokenizer->tokens[tokenizer->iterator + 1] == "." && tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator + 2]) == "identifier") {
+        if (tokenizer->tokenType(token) == "identifier") {
             compile_term();
-        } else {
-            if (tokenizer->tokenType(token) == "integerConstant") {
-                writer.writePush("constant", stoi(token));
-                tokenizer->advance();
-                token = tokenizer->tokens[tokenizer->iterator];
-            } else if (tokenizer->tokenType(token) == "keyword" && (token == "true" || token == "false" || token == "null")) {
+        } else if (tokenizer->tokenType(token) == "integerConstant") {
+            writer.writePush("constant", stoi(token));
+            tokenizer->advance();
+        } else if (tokenizer->tokenType(token) == "stringConstant") {
+            compile_term();
+        } else if (tokenizer->tokenType(token) == "keyword") {
+            compile_term();
+        } else if (tokenizer->tokenType(token) == "symbol") { 
+            if (token == "(") {
                 compile_term();
-                token = tokenizer->tokens[tokenizer->iterator];        
-            } else if (tokenizer->tokenType(token) != "symbol" || token == "(") {
-                compile_term();
-                token = tokenizer->tokens[tokenizer->iterator];
             } else if (token == "-" && tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator - 1]) == "symbol" && tokenizer->tokens[tokenizer->iterator - 1] != ")") {
                 //this will execute on negative numbers but not on subtraction operations
                 //compile the term after the negative sign and then write the negation
                 tokenizer->advance();
                 compile_term();
                 writer.writeArithmetic("neg");
-                token = tokenizer->tokens[tokenizer->iterator];
             } else if (token == ",") {
                 break;
-                write(token, tokenizer->tokenType(token));
-                tokenizer->advance();
-                token = tokenizer->tokens[tokenizer->iterator];
-            } else if ((tokenizer->tokenType(token) == "symbol") && (token == "+" || token == "-" || token == "*" || token == "/" || token == "<" || token == ">" || token == "=" || token == "~" || token == "&" || token == "|")) {
+            } else if (token == "+" || token == "-" || token == "*" || token == "/" || token == "<" || token == ">" || token == "=" || token == "~" || token == "&" || token == "|") {
                 //store the symbol for later and advance past it
                 string symbol = tokenizer->tokens[tokenizer->iterator];
                 tokenizer->advance();
-                token = tokenizer->tokens[tokenizer->iterator];
                 //the token will be the token after the operator, we need to compile this as an expression
                 compile_expression();
                 
                 writer.writeArithmetic(symbol);
-                token = tokenizer->tokens[tokenizer->iterator];
             } else {
                 tokenizer->advance();
-                token = tokenizer->tokens[tokenizer->iterator];
             }
         }
+        token = tokenizer->tokens[tokenizer->iterator];
     }
-    outfile << "</expression>" << endl; 
 }
 
-    void CompilationEngine::compile_term() {
+
+
+void CompilationEngine::compile_term() {
 
         string token = tokenizer->tokens[tokenizer->iterator];
         if (tokenizer->tokenType(token) == "identifier") {
@@ -360,21 +331,14 @@ void CompilationEngine::compile_expression() {
             tokenizer->advance();   
         } else if (tokenizer->tokenType(token) == "symbol") {
             if (token == "(") {
-                //write the (
-                write(token, tokenizer->tokenType(token));
                 tokenizer->advance();
             
                 compile_expression();
             
-                //write the (
-                token = tokenizer->tokens[tokenizer->iterator];
-                write(token, tokenizer->tokenType(token));
                 tokenizer->advance();
             } else if (token == "~") {
-                write(token, tokenizer->tokenType(token));
                 tokenizer->advance();
                 compile_term();
-                //tokenizer->advance();
             }
         } else if (tokenizer->tokenType(token) == "integerConstant") {
             writer.writePush("constant", stoi(token));
@@ -384,25 +348,15 @@ void CompilationEngine::compile_expression() {
                 if (token == "true") {
                     writer.writePush("constant", 0);
                     writer.writeArithmetic("not");
-                } else if (token == "false") {
+                } else if (token == "false" || token == "null") {
                     writer.writePush("constant", 0);
                 }
-                //also need null
-                tokenizer->advance();
             } else if (token == "this") {
                 writer.writePush("pointer", 0);
-                tokenizer->advance();
             }
+            tokenizer->advance();
         } else {
-            //int, string or keyword
-            //these will always be one token
-            if (token[0] == '"') {
-                write(token.substr(1, token.length() - 2), tokenizer->tokenType(token));
-                tokenizer->advance();
-            } else {
-                write(token, tokenizer->tokenType(token));
-                tokenizer->advance();
-            }
+            tokenizer->advance();
         }
 }
 
@@ -548,7 +502,6 @@ int CompilationEngine::compile_expression_list() {
             compile_expression();
             args += 1;
             if ((token = tokenizer->tokens[tokenizer->iterator]) == ",") {
-                write(token, tokenizer->tokenType(token));
                 tokenizer->advance();
             }
         }
