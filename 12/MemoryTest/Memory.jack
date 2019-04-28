@@ -41,48 +41,43 @@ class Memory {
     //heap runs from 2048 to 14335
     function int alloc(int size) {
         var int block;
+        var bool fragmented;
         let block = freeList;
-    
+
         //if the next index is not null
-        if (Memory.peek(freeList + 1) > 0) {
-            while (Memory.peek(block + 1) > 0) {
-                if (Memory.peek(block) > size) {
-                    //update the 0th index of block to hold the block's size
-                    do Memory.poke(block, size + 1);
-               
-                    let freeList = Memory.peek(block + 1); 
-                    return block + 1;
-                } else {
-                    let block = Memory.peek(block + 1);
-                }
-            }
-    
-            //if this point is reached, then defragmentation is necessary
-        } 
-        //next is null, ie there is only one block on the heap
-        else {
-            //if the length of the block is greater than the required size
+        while (Memory.peek(block + 1) > 0) {
             if (Memory.peek(block) > size) {
-                //freeList is a pointer to the current segment, the values in freeList and freeList + 1 are the segments length and next
-                let length = Memory.peek(freeList);
-                let next = Memory.peek(freeList + 1);
-               
-                //move freeList down by the size of the block plus 1
-                let freeList = freeList + size + 1;
-                //update the length and the next of the new freeList
-                do Memory.poke(freeList, length - size);
-                do Memory.poke(freeList + 1, -1);  
-                
                 //update the 0th index of block to hold the block's size
                 do Memory.poke(block, size + 1);
-                //change the 1th index of the block from the location of next to a 0
-                do Memory.poke(block + 1, 0);
-   
+           
+                let freeList = Memory.peek(block + 1); 
                 return block + 1;
             } else {
-                //the block is not large enough
-            }        
+                let block = Memory.peek(block + 1);
+            }
         }
+    
+        //if this is reached then next is null, ie there is only one block on the heap
+        //if the length of the block is greater than the required size
+        if (Memory.peek(block) > size) {
+            //freeList is a pointer to the current segment, the values in freeList and freeList + 1 are the segments length and next
+            let length = Memory.peek(freeList);
+            let next = Memory.peek(freeList + 1);
+           
+            //move freeList down by the size of the block plus 1
+            let freeList = freeList + size + 1;
+            //update the length and the next of the new freeList
+            do Memory.poke(freeList, length - size);
+            do Memory.poke(freeList + 1, -1);  
+            
+            //update the 0th index of block to hold the block's size
+            do Memory.poke(block, size + 1);
+            //change the 1th index of the block from the location of next to a 0
+            do Memory.poke(block + 1, 0);
+
+            return block + 1;
+        }
+        
         //something is wrong if this is reached
         return -1;
     }
@@ -93,7 +88,7 @@ class Memory {
         var int segment;
         let segment = o - 1;
         //put the length of the segment in the 0th index of the segment
-        do Memory.poke(segment, Memory.peek(o - 1));
+        do Memory.poke(segment, Memory.peek(segment));
         //put the current value of freeList into the 1th index of the segment
         do Memory.poke(segment + 1, freeList);
 

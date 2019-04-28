@@ -40,18 +40,9 @@ push temp 0
 pop that 0
 push constant 0
 return
-function Memory.alloc 1
+function Memory.alloc 2
 push static 3
 pop local 0
-push static 3
-push constant 1
-add
-call Memory.peek 1
-push constant 0
-gt
-if-goto IF_TRUE0
-goto IF_FALSE0
-label IF_TRUE0
 label WHILE_EXP0
 push local 0
 push constant 1
@@ -65,9 +56,9 @@ push local 0
 call Memory.peek 1
 push argument 0
 gt
-if-goto IF_TRUE1
-goto IF_FALSE1
-label IF_TRUE1
+if-goto IF_TRUE0
+goto IF_FALSE0
+label IF_TRUE0
 push local 0
 push argument 0
 push constant 1
@@ -83,25 +74,23 @@ push local 0
 push constant 1
 add
 return
-goto IF_END1
-label IF_FALSE1
+goto IF_END0
+label IF_FALSE0
 push local 0
 push constant 1
 add
 call Memory.peek 1
 pop local 0
-label IF_END1
+label IF_END0
 goto WHILE_EXP0
 label WHILE_END0
-goto IF_END0
-label IF_FALSE0
 push local 0
 call Memory.peek 1
 push argument 0
 gt
-if-goto IF_TRUE2
-goto IF_FALSE2
-label IF_TRUE2
+if-goto IF_TRUE1
+goto IF_FALSE1
+label IF_TRUE1
 push static 3
 call Memory.peek 1
 pop static 4
@@ -145,10 +134,7 @@ push local 0
 push constant 1
 add
 return
-goto IF_END2
-label IF_FALSE2
-label IF_END2
-label IF_END0
+label IF_FALSE1
 push constant 1
 neg
 return
