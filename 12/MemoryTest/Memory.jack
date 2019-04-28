@@ -1,0 +1,107 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Memory.jack
+
+/**
+ * This library provides two services: direct access to the computer's main
+ * memory (RAM), and allocation and recycling of memory blocks. The Hack RAM
+ * consists of 32,768 words, each holding a 16-bit binary number.
+ */ 
+class Memory {
+    
+    static Array memory;
+    static int heapStart, heapEnd, freeList, length, next;
+    
+    /** Initializes the class. */
+    function void init() {
+        let memory = 0;
+        let heapStart = 2048;
+        let heapEnd = 14335;
+        let freeList = heapStart;
+
+        do Memory.poke(freeList, heapEnd - heapStart);
+        do Memory.poke(freeList + 1, -1);
+        return;
+    }
+
+    /** Returns the RAM value at the given address. */
+    function int peek(int address) {
+        return memory[address];
+    }
+
+    /** Sets the RAM value at the given address to the given value. */
+    function void poke(int address, int value) {
+        let memory[address] = value;
+        return;
+    }
+
+    /** Finds an available RAM block of the given size and returns
+     *  a reference to its base address. */
+    //heap runs from 2048 to 14335
+    function int alloc(int size) {
+        var int block;
+        let block = freeList;
+    
+        //if the next index is not null
+        if (Memory.peek(freeList + 1) > 0) {
+            while (Memory.peek(block + 1) > 0) {
+                if (Memory.peek(block) > size) {
+                    //update the 0th index of block to hold the block's size
+                    do Memory.poke(block, size + 1);
+               
+                    let freeList = Memory.peek(block + 1); 
+                    return block + 1;
+                } else {
+                    let block = Memory.peek(block + 1);
+                }
+            }
+    
+            //if this point is reached, then defragmentation is necessary
+        } 
+        //next is null, ie there is only one block on the heap
+        else {
+            //if the length of the block is greater than the required size
+            if (Memory.peek(block) > size) {
+                //freeList is a pointer to the current segment, the values in freeList and freeList + 1 are the segments length and next
+                let length = Memory.peek(freeList);
+                let next = Memory.peek(freeList + 1);
+               
+                //move freeList down by the size of the block plus 1
+                let freeList = freeList + size + 1;
+                //update the length and the next of the new freeList
+                do Memory.poke(freeList, length - size);
+                do Memory.poke(freeList + 1, -1);  
+                
+                //update the 0th index of block to hold the block's size
+                do Memory.poke(block, size + 1);
+                //change the 1th index of the block from the location of next to a 0
+                do Memory.poke(block + 1, 0);
+   
+                return block + 1;
+            } else {
+                //the block is not large enough
+            }        
+        }
+        //something is wrong if this is reached
+        return -1;
+    }
+
+    /** De-allocates the given object (cast as an array) by making
+     *  it available for future allocations. */
+    function void deAlloc(Array o) {
+        var int segment;
+        let segment = o - 1;
+        //put the length of the segment in the 0th index of the segment
+        do Memory.poke(segment, Memory.peek(o - 1));
+        //put the current value of freeList into the 1th index of the segment
+        do Memory.poke(segment + 1, freeList);
+
+        //change the value of freeList to be the current object
+        let freeList = segment;
+            
+        let length = Memory.peek(freeList);
+        let next = Memory.peek(freeList + 1);
+        return;
+    }
+}
