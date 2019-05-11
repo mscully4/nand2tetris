@@ -37,8 +37,8 @@ class Screen {
 
     /** Erases the entire screen. */
     function void clearScreen() {
-        //Screen.setColor(false);
         var int j;  
+        do Screen.setColor(false);
         let j = 0;
         while (mapStart + j < mapEnd) {
             do Memory.poke(mapStart + j, 0);

@@ -209,6 +209,7 @@ class Output {
             let character = j;
             return;
         }
+        return;
     }
 
     function void removeCursor(int i, int j) {
@@ -275,7 +276,7 @@ class Output {
     function void printString(String s) {
         var int length;
         let length = 2;
-        while (length < (String.length(s) + 2)) {
+        while (length < (s.length() + 2)) {
             do Output.printChar(s[length]);
             let length = length + 1;
         }
