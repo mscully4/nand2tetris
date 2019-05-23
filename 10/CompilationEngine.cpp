@@ -78,28 +78,28 @@ void CompilationEngine::compile_subroutine() {
         tokenizer->advance();
     }
  
-    bool params = true, body = true;
-    int curly = 1;
-    while (true) {
-        token = tokenizer->tokens[tokenizer->iterator];
-        if (token == "(" && params == true) {
-            params = false;
-            write(token, tokenizer->tokenType(token));
-            tokenizer->advance();
-            compile_parameter_list();
-        } else if (token == "{" && body == true) {
-            body = false;
-            compile_subroutine_body();
-        }
-        
-        if (!(body || params)) {
-            outfile << "</subroutineDec>" << endl;
-            break;
-        } else if (tokenizer->has_more_tokens()) {
-            tokenizer->advance();
-        } else {
-            break;
-        }
+    token = tokenizer->tokens[tokenizer->iterator];
+    //write the parenthesis
+    write(token, tokenizer->tokenType(token));
+    tokenizer->advance();
+    //if there are parameters, compile parameter list 
+    if (token != ")") {
+        compile_parameter_list();
+    } 
+    
+    //token = tokenizer->tokens[tokenizer->iterator];
+    //write(token, tokenizer->tokenType(token));
+    tokenizer->advance();
+
+    //compile the subroutine body
+    compile_subroutine_body();   
+    
+    outfile << "</subroutineDec>" << endl;
+
+    token = tokenizer->tokens[tokenizer->iterator];
+    if (token == "}") {
+        write(token, tokenizer->tokenType(token));
+        tokenizer->advance();
     }
 }
 
@@ -127,25 +127,20 @@ void CompilationEngine::compile_subroutine_body() {
     tokenizer->advance();
 
     //we are looking for the last curly brace as the end of the subroutine body
-    int curly = 1;
-    while (curly > 0) {
+    while (true) {
         token = tokenizer->tokens[tokenizer->iterator];
-        if (token == "{") {
-            ++curly;
-        } else if (token == "}") {
-            --curly;
-        } else if (token == "var") {
+        if (token == "var") {
             compile_var_dec();
         } else if (token == "let" || token == "if" || token == "else" || token == "while" || token == "do" || token == "return") {
             compile_statement();
         }
-
-        if (tokenizer->has_more_tokens() && token != "return" && tokenizer->tokens[tokenizer->iterator] != "}") {
-            tokenizer->advance();
-        } else {
-            break;
+        
+        if (tokenizer->tokens[tokenizer->iterator] == "}") {
+            break;   
         }
+        tokenizer->advance();
     }
+    
     //write the last curly brace
     token = tokenizer->tokens[tokenizer->iterator];
     write(token, tokenizer->tokenType(token));
@@ -168,9 +163,8 @@ void CompilationEngine::compile_var_dec() {
 
 void CompilationEngine::compile_statement() {
     outfile << "<statements>" << endl;
-    vector<string> statements {"let", "if", "else", "while", "do", "return"};
-    while (true) {
-        string token = tokenizer->tokens[tokenizer->iterator];
+    string token;
+    while ((token = tokenizer->tokens[tokenizer->iterator]) != "}") {
         if (token == "let") {
             //cout << "LET" << endl;
             compile_let();
@@ -186,8 +180,6 @@ void CompilationEngine::compile_statement() {
         } else if (token == "return") {
             //cout  << "RETURN" << endl;
             compile_return();
-        } else if (token == "}") {
-            break;
         }
         if (tokenizer->has_more_tokens()) tokenizer->advance();
     }
