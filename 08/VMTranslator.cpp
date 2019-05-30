@@ -532,7 +532,7 @@ int main(int argc, char * argv[]) {
                 DIR * dir;
                 struct dirent * ent;
                 if ((dir = opendir(argv[1])) != NULL) {
-                    struct stat buffer;
+                   struct stat buffer;
                     while ((ent=readdir(dir)) != NULL) {
                         string x = (string)argv[1] + ent->d_name;
                         stat(x.c_str(), &buffer);
