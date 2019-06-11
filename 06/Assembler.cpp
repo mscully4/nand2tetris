@@ -1,109 +1,48 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <bitset>
-#include <vector>
-#include <functional>
-#include <cstring>
-#include <cstdlib>
-#include "HashTable/HashTable.h"
+#include<string>
+#include<iostream>
+#include<vector>
+#include<bitset>
+#include<map>
+#include "Assembler.h"
+#include "SymbolTable.h"
+#include "trim.h"
 
 using namespace std;
 
-void trim(string& s, const string& delimiters = " \f\n\r\t\v" )
-{
-    s.erase( s.find_last_not_of( delimiters ) + 1 ).erase( 0, s.erase( s.find_last_not_of( delimiters ) + 1 ).find_first_not_of( delimiters ) );
-}
-
-int main(int argc, char* argv[]) {
-    HashTable<string, int> table(11);
-    //load the constants into the Hash Table
-    table.put("R0", 0);
-    table.put("R1", 1);
-    table.put("R2", 2);
-    table.put("R3", 3);
-    table.put("R4", 4);
-    table.put("R5", 5);
-    table.put("R6", 6);
-    table.put("R7", 7);
-    table.put("R8", 8);
-    table.put("R9", 9);
-    table.put("R10", 10);
-    table.put("R11", 11);
-    table.put("R12", 12);
-    table.put("R13", 13);
-    table.put("R14", 14);
-    table.put("R15", 15);
-
-    table.put("SP", 0);    
-    table.put("LCL", 1);    
-    table.put("ARG", 2);    
-    table.put("THIS", 3);    
-    table.put("THAT", 4);    
-    table.put("SCREEN", 16384);    
-    table.put("KBD", 24576);    
-
-    ifstream infile, infile_copy;
-    infile.open(argv[1]);
-    infile_copy.open(argv[1]);
-    ofstream outfile;
-    vector<string> output;
-    int location = 16, value = 0, line_c = 0;
-    bool result;
-    hash<string> hasher;
-    if (infile_copy) {
-        string line;
-        while (getline(infile_copy, line)) {
-            trim(line);
-            if ((int)line[0] && (line[0] != '/' && line[0] != '(')) ++line_c;
-            if (!(line[0] == '/' && line[1] =='/') && (int)line[0]) {
-                if (line[0] == '(') {
-                    line.erase(0, 1);
-                    for (int locator = 0; locator < line.length(); ++locator) {
-                        if (line[locator] == ')') {
-                            line.erase(locator, line.length() - locator);
-                            break;
-                        }
-                    }
-                    trim(line);
-                    table.put(line, line_c);
-                    if (line == "END_EQ") {
-                        int ds = 0;
-                        table.get("END_EQ", ds);
-                    }
-                }
-            }
-        }
-    }
-    //table.print_all();
-
+Assembler::Assembler(const string& path, SymbolTable * table) {
+    ifstream infile;
+    infile.open(path);
     if (infile) {
-        string line, address, command ;
+        string line, address, command;
+        int location = 16, value = 0;
         while (getline(infile, line)) {
             trim(line);
-            //cout << line << endl;
             if (!(line[0] == '/' && line[1] == '/') && !isspace(line[0]) && (int)line[0]) {
                 if (line[0] == '@') {
                     line.erase(0, 1);
                     if (isdigit(line[0])) {
                         address = bitset<16> (stoi(line, nullptr, 10)).to_string();
+                        cout << address << endl;
                         output.push_back(address);
                     } else {
-                        bool result = table.get(line, value);
-                        if (result) {
-                            output.push_back(bitset<16>(value).to_string());    
+                        value = table->addressOf(line);
+                        if (value >= 0) {
+                            output.push_back(bitset<16>(value).to_string());
                         } else {
-                            table.put(line, location);
-                            output.push_back(bitset<16>(location).to_string());
+                            table->define(line, location);
+                            address = bitset<16>(location).to_string();
+                            cout << address << endl;
+                            output.push_back(address);
                             ++location;
                         }
                     }
                 } else if (line[0] != '(') {
                     command = "1110000000000000";
                     for (int i=0; i<line.length(); ++i) {
-                        if (line[i] == '/') {break;}
-                        else if ((int)line[i] == (int)'=') {
-                            //cout << line << " " << i << endl;
+                        if (line[i] == '/') {
+                            break;
+                        }
+                        else if (line[i] == '=') {
                             for (int z=0; z<i; ++z) {
                                 if (line[z] == 'A') {
                                     command[10] = '1';
@@ -265,20 +204,18 @@ int main(int argc, char* argv[]) {
                                 command[15] = '1';
                             } else {
                                 cerr << "Invalid Syntax" << endl;
-                                return 1;
+                                break;
                             }
                         }
                     }
-                    //cout << command << endl;
-                    output.push_back(command); 
-                }   
+                    output.push_back(command);
+                }
             }
         }
     }
-    //cout << argv[2] << endl;
-    outfile.open(argv[2]);
-    for (int j=0; j<output.size(); j++) {
-        //cout << output[j] << endl;
-        outfile << output[j] << endl;
+    ofstream outfile;
+    outfile.open(path.substr(0, path.length() - 3) + "hack");
+    for (int i=0; i<output.size(); ++i) {
+        outfile << output[i] << endl;
     }
 }
