@@ -20,8 +20,9 @@ int main(int argc, char * argv[]) {
         if (stat(infile.c_str(), &buffer) == 0) {
             if (S_ISREG(buffer.st_mode)) {
                 string outfile = argv[1];
-                outfile = get_current_path() + "/" + outfile.replace(outfile.length()-4, 4, ".xml");
+                outfile = get_current_path() + "/" + outfile.replace(outfile.length()-5, 5, ".xml");
                 cout << "FILE" << endl;
+                cout << outfile << endl;
                 JackTokenizer tokenizer(infile);
                 CompilationEngine engine(outfile, &tokenizer);
            } else if (S_ISDIR(buffer.st_mode)) {

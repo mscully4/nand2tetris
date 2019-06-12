@@ -38,7 +38,6 @@ int main(int argc, char * argv[]) {
                         break;
                     }
                 }
-                cout << destination << out << endl;
                 destination = get_current_path() + "/" + destination + out + ".asm";
                 cout << destination << endl;
                 //write the bootstrap code into the destination file

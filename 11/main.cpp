@@ -14,31 +14,25 @@ string get_current_path() {
 
 int main(int argc, char * argv[]) {
 
-    if (argc == 3) {
-        string infile = get_current_path() + "/" + argv[1];
-        string outfile = get_current_path() + "/" + argv[2];
+    if (argc == 2) {
+        string infile, outfile, fileName;
+        fileName = argv[1];
+        infile = get_current_path() + "/" + fileName;
         cout << infile.c_str() << endl;
         struct stat buffer;
         if (stat(infile.c_str(), &buffer) == 0) {
             if (S_ISREG(buffer.st_mode)) {
                 cout << "FILE" << endl;
-                cout << outfile << endl;
+                outfile = get_current_path() + "/" + fileName.substr(0, fileName.length() - 5) + ".vm";
                 JackTokenizer tokenizer(infile);
                 CompilationEngine engine(outfile, &tokenizer);
             } else if (S_ISDIR(buffer.st_mode)) {
                 cout << "DIR" << endl;
-                string destination = get_current_path() + "/" + argv[2]; 
+                string destination = get_current_path() + "/" + fileName.substr(0, fileName.length() - 5) + ".vm"; 
                 DIR * dir;
                 struct dirent * ent;
                 if ((dir = opendir(argv[1])) != NULL) {
                     struct stat buffer;
-                    stat("Square/Main.jack", &buffer);
-                    //if (S_ISREG(buffer.st_mode)) {
-                        //string in = string(get_current_path()) + string("/") + string(argv[1]) + string("Main.jack");
-                        //string out = string(get_current_path()) + string("/") + string(argv[1]) + string("Main.vm"); 
-                        //JackTokenizer tokenizer(in);
-                        //CompilationEngine engine(out, &tokenizer);
-                    //}
                     while ((ent=readdir(dir)) != NULL) {
                         string x = (string)argv[1] + ent->d_name;
                         stat(x.c_str(), &buffer);

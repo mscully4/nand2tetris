@@ -13,6 +13,7 @@ class CompilationEngine {
     public:
         string token;
         string className;
+        int classFields;
         string outfilePath;
         JackTokenizer * tokenizer;
         CompilationEngine(const string& path, JackTokenizer * tokenizer);
@@ -22,8 +23,8 @@ class CompilationEngine {
         void compile_class_var_dec();
         void compile_subroutine();
         void compile_parameter_list();
-        void compile_subroutine_body();
-        void compile_var_dec();
+        void compile_subroutine_body(string& subroutineBody, string& type);
+        int compile_var_dec();
         void compile_statement();
         void compile_let();
         void compile_expression();

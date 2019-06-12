@@ -22,10 +22,8 @@ void CompilationEngine::write(const string& token, const string& type) {
     if (type == "symbol") {
         if (token == ">") {
             output = "&gt;";
-            alt = true;
         } else if (token == "<") {
             output = " &lt;";
-            alt = true;
         } else if (token == "&") {
             output = "&amp;";
         }
@@ -166,19 +164,14 @@ void CompilationEngine::compile_statement() {
     string token;
     while ((token = tokenizer->tokens[tokenizer->iterator]) != "}") {
         if (token == "let") {
-            //cout << "LET" << endl;
             compile_let();
         } else if (token == "while") {
-            //cout << "WHILE" << endl;
             compile_while();
         } else if (token == "if") {
-            //cout << "IF" << endl;
             compile_if();
         } else if (token == "do") {
-            //cout << "DO" << endl;
             compile_do();
         } else if (token == "return") {
-            //cout  << "RETURN" << endl;
             compile_return();
         }
         if (tokenizer->has_more_tokens()) tokenizer->advance();
@@ -212,127 +205,160 @@ void CompilationEngine::compile_let() {
 void CompilationEngine::compile_expression() {
     outfile << "<expression>" << endl;
     token = tokenizer->tokens[tokenizer->iterator];
+    //keep looping until the end of the expression is reached
     while(token != ";" && token != "]" && token != ")") {
-        //this is only true when a function is being called
-        if (token == "(" && tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator - 1]) == "identifier") {
-            write(token, tokenizer->tokenType(token));
-            tokenizer->advance();
-            compile_expression_list();
-            //not sure if this should be here or at the end of compile_expression_list
-            //tokenizer->advance();
-            token = tokenizer->tokens[tokenizer->iterator];
-            write(token, tokenizer->tokenType(token));
-            tokenizer->advance();
-        } else {
-            if (tokenizer->tokenType(token) != "symbol" || token == "(") {
+        //compile term for identifiers
+        if (tokenizer->tokenType(token) == "identifier") {
+            compile_term();
+        } else if (tokenizer->tokenType(token) == "integerConstant") {
+            //compile term for integers
+            compile_term();
+        } else if (tokenizer->tokenType(token) == "stringConstant") {
+            //compile term for strings
+            compile_term();
+        } else if (tokenizer->tokenType(token) == "keyword") {
+            //compile term for keywords
+            compile_term();
+        } else if (tokenizer->tokenType(token) == "symbol") {
+            //if the expression begins with a parenthesis
+            if (token == "(") { 
+                //compile the term within the parenthesis
                 compile_term();
-                token = tokenizer->tokens[tokenizer->iterator];
-            } else if (token == "-") {
+                //then advance
+                tokenizer->advance();
+            } 
+            //if the expression begins with a negative sign
+            else if (token == "-") {
+                //if the negation is taking place within parenthesis
                 if (tokenizer->tokens[tokenizer->iterator - 1] == "(") {
+                    //compile the term within the parenthesis
                     compile_term();
+                    //then advance
                     tokenizer->advance();
-                    token = tokenizer->tokens[tokenizer->iterator];
-                } else {
+                } 
+                //otherwise a single value is being negated
+                else {
                     //write the negative sign
                     write(token, tokenizer->tokenType(token));
                     tokenizer->advance();
                     
                     //handle the actual term
                     compile_term();
-                    token = tokenizer->tokens[tokenizer->iterator];
                 }
-            } else if (token == "~") {
+            } 
+            //if the expression begins with a not sign
+            else if (token == "~") {
+                //compile the term, but don't advance
                 compile_term();
-                token = tokenizer->tokens[tokenizer->iterator];
-            } else if (token == ",") {
+            } 
+            //if the expression begins with a comma
+            else if (token == ",") {
+                //this is only being called with paramters or arguments so just break
                 break;
+            }
+            else {
+                //otherwise just write and advance
                 write(token, tokenizer->tokenType(token));
                 tokenizer->advance();
-                token = tokenizer->tokens[tokenizer->iterator];
-            } else {
-                write(token, tokenizer->tokenType(token));
-                tokenizer->advance();
-                token = tokenizer->tokens[tokenizer->iterator];
             }
         }
+        token = tokenizer->tokens[tokenizer->iterator];
     }
     outfile << "</expression>" << endl; 
 }
 
 void CompilationEngine::compile_term() {
     outfile << "<term>" << endl;
-
     string token = tokenizer->tokens[tokenizer->iterator];
+    //if the term is an identifier
     if (tokenizer->tokenType(token) == "identifier") {
+        //write the first token and advance to the next
         write(token, tokenizer->tokenType(token));
         tokenizer->advance();
         token = tokenizer->tokens[tokenizer->iterator];
+        //if the next token is a period, then this is a method or field
         if (token == ".") {
-            //this is a method
-            while ((token = tokenizer->tokens[tokenizer->iterator]) != "(") {
+            if (tokenizer->tokens[tokenizer->iterator+2] == "(") {
+                //write the method information
+                while ((token = tokenizer->tokens[tokenizer->iterator]) != "(") {
+                    write(token, tokenizer->tokenType(token));
+                    tokenizer->advance();
+                }
+                //write the (
+                write(token, tokenizer->tokenType(token));
+                tokenizer->advance();
+                
+                //compile the arguments
+                compile_expression_list();
+
+                //write the )
+                token = tokenizer->tokens[tokenizer->iterator];
+                write(token, tokenizer->tokenType(token));
+                tokenizer->advance();
+            } 
+            //this is a field
+            else if (tokenizer->tokens[tokenizer->iterator+2] == ")") {
                 write(token, tokenizer->tokenType(token));
                 tokenizer->advance();
             }
-            //write the (
+        } 
+        //otherwise this is a field array
+        else if (token == "[") {
+            //write the opening bracket
             write(token, tokenizer->tokenType(token));
             tokenizer->advance();
             
-            //this will be the arguments
-            compile_expression_list();
-
-            //write the )
-            token = tokenizer->tokens[tokenizer->iterator];
-            write(token, tokenizer->tokenType(token));
-            tokenizer->advance();
-        } else if (token == "[") {
-            write(token, tokenizer->tokenType(token));
-            tokenizer->advance();
-            
+            //compile the expression inside
             compile_expression();
             
+            //write the closing bracket
             token = tokenizer->tokens[tokenizer->iterator];
-            write(token, tokenizer->tokenType(token));
-            tokenizer->advance();
-        } 
-    } else if (token == "(") {
-        //write the (
-        write(token, tokenizer->tokenType(token));
-        tokenizer->advance();
-        
-        compile_expression();
-        
-        //write the (
-        token = tokenizer->tokens[tokenizer->iterator];
-        write(token, tokenizer->tokenType(token));
-        tokenizer->advance();
-    } else if (token == "-") {
-        //negative int, will be exactly two tokens
-        //write the -
-        write(token, tokenizer->tokenType(token));
-        tokenizer->advance();
-        token = tokenizer->tokens[tokenizer->iterator];
-
-        //write the value
-        outfile << "<term>" << endl;
-        write(token, tokenizer->tokenType(token));
-        outfile << "</term>" << endl;
-    } else if (token == "~") {
-        write(token, tokenizer->tokenType(token));
-        tokenizer->advance();
-        compile_term();
-        //tokenizer->advance();
-    } else {
-        //int, string or keyword
-        //these will always be one token
-        if (token[0] == '"') {
-            write(token.substr(1, token.length() - 2), tokenizer->tokenType(token));
-            tokenizer->advance();
-        } else {
             write(token, tokenizer->tokenType(token));
             tokenizer->advance();
         }
+    } else if (tokenizer->tokenType(token) == "integerConstant") {
+        write(token, tokenizer->tokenType(token));
+        tokenizer->advance();
+    } else if (tokenizer->tokenType(token) == "stringConstant") {
+        //write the string without the quotation marks
+        write(token.substr(1, token.length() - 2), tokenizer->tokenType(token));
+        tokenizer->advance();
+    } else if (tokenizer->tokenType(token) == "keyword") {
+        write(token, tokenizer->tokenType(token));
+        tokenizer->advance();
+    } else if (tokenizer->tokenType(token) == "symbol") {
+        //if the first token is a open parenthesis
+        if (token == "(") {
+                //write the opening parenthesis
+                write(token, tokenizer->tokenType(token));
+                tokenizer->advance();
+                //compile the expression
+                compile_expression();
+                //write the closing parenthesis
+                token = tokenizer->tokens[tokenizer->iterator];
+                write(token, tokenizer->tokenType(token));
+                token = tokenizer->tokens[tokenizer->iterator];
+        } 
+        //if the first token is the not operator
+        else if (token == "~") {
+                tokenizer->advance();
+                //compile whatever comes next
+                compile_term();
+        } 
+        //if the first token is the negative sign, then we have a negative int
+        else if (token == "-") {
+            //negative int, will be exactly two tokens
+            //write the -
+            write(token, tokenizer->tokenType(token));
+            tokenizer->advance();
+            token = tokenizer->tokens[tokenizer->iterator];
+            
+            //write the value
+            outfile << "<term>" << endl;
+            write(token, tokenizer->tokenType(token));
+            outfile << "</term>" << endl;
+        }
     }
-
     outfile << "</term>" << endl;
 }
 
@@ -356,7 +382,8 @@ void CompilationEngine::compile_while() {
     //write the opening curly brace
     write(tokenizer->tokens[tokenizer->iterator], tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator]));
     tokenizer->advance();
-   
+  
+    //compile the statements within the loop 
     compile_statement();
         
     //write the closing curly brace
@@ -374,7 +401,8 @@ void CompilationEngine::compile_if() {
         write(tokenizer->tokens[tokenizer->iterator], tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator]));
         tokenizer->advance();
     }
-
+    
+    //compile the logic expression
     compile_expression();
     
     //write the closing parenthesis of the condition 
@@ -385,11 +413,13 @@ void CompilationEngine::compile_if() {
     write(tokenizer->tokens[tokenizer->iterator], tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator]));
     tokenizer->advance();
 
+    //compile the statements within the if
     compile_statement();
 
     //write the closing curly brace
     write(tokenizer->tokens[tokenizer->iterator], tokenizer->tokenType(tokenizer->tokens[tokenizer->iterator]));
     
+    //if there is an else
     if (tokenizer->tokens[tokenizer->iterator + 1] == "else") {
         tokenizer->advance();
         token = tokenizer->tokens[tokenizer->iterator];
@@ -403,6 +433,7 @@ void CompilationEngine::compile_if() {
         write(token, tokenizer->tokenType(token));
         tokenizer->advance();
        
+        //compile the statements within the else
         compile_statement(); 
 
         //write the closing curly brace
@@ -416,7 +447,7 @@ void CompilationEngine::compile_if() {
 void CompilationEngine::compile_do() {
     outfile << "<doStatement>" << endl;
     
-    //print until we reach the parameters
+    //write until we reach the parameters
     string token;
     while ((token = tokenizer->tokens[tokenizer->iterator]) != "(") {
         write(token, tokenizer->tokenType(token));
@@ -430,12 +461,20 @@ void CompilationEngine::compile_do() {
     
     //handle the arguments
     compile_expression_list();
+   
+    //write the closing parenthesis 
+    token = tokenizer->tokens[tokenizer->iterator];
+    write(token, tokenizer->tokenType(token));
+    tokenizer->advance();
     
-    while(tokenizer->tokens[tokenizer->iterator] != ";") {
-        token = tokenizer->tokens[tokenizer->iterator];
-        write(token, tokenizer->tokenType(token));
-        tokenizer->advance();
-    }
+    //advance until you reach the end of the line
+    //while(tokenizer->tokens[tokenizer->iterator] != ";") {
+    //    token = tokenizer->tokens[tokenizer->iterator];
+    //    cout << token << endl;
+    //    write(token, tokenizer->tokenType(token));
+    //    tokenizer->advance();
+    //}
+    
     //write the ending semicolon
     token = tokenizer->tokens[tokenizer->iterator];
     write(token, tokenizer->tokenType(token));
@@ -449,8 +488,11 @@ void CompilationEngine::compile_expression_list() {
     token = tokenizer->tokens[tokenizer->iterator];
     //if the list is not empty
     if (token != ")") {
+        //keep going until the closing parenthesis is reached
         while ((token = tokenizer->tokens[tokenizer->iterator]) != ")") {
+            //compile the expression
             compile_expression();
+            //if there is a comma, write it and advance
             if ((token = tokenizer->tokens[tokenizer->iterator]) == ",") {
                 write(token, tokenizer->tokenType(token));
                 tokenizer->advance();
@@ -463,7 +505,6 @@ void CompilationEngine::compile_expression_list() {
 void CompilationEngine::compile_return() {
     outfile << "<returnStatement>" << endl;
 
-    
     //write the return keyword    
     string token = tokenizer->tokens[tokenizer->iterator];
     write(token, tokenizer->tokenType(token));
@@ -473,6 +514,7 @@ void CompilationEngine::compile_return() {
     token = tokenizer->tokens[tokenizer->iterator];
     string type = tokenizer->tokenType(token);
     if (type == "keyword" || type == "identifier") {
+        //compile the return value
         compile_expression();
     }
 
