@@ -1,0 +1,1 @@
+nand2tetris is a program aimed at teaching interested individuals how computers work starting from a very low level all the way up to oeprating systems.  The program consists of 12 chapters, with assignments at the end of each chapeter.  The assignments include things like designing rudimentary pieces of hardware, writing an assembler & compiler and implementing a stack/heap.
